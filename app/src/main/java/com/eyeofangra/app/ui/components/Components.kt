@@ -75,6 +75,51 @@ fun CaptureButton(
     }
 }
 
+/// Wide labelled action, used where there is no viewfinder to anchor a camera-style
+/// control. The word carries the meaning; the shape change carries the state.
+/// No glow — a halo on a dark ground costs contrast and reads as decoration.
+@Composable
+fun PillAction(
+    label: String,
+    active: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val container = when {
+        !enabled -> Angra.SurfaceAlt
+        active -> Angra.SurfaceAlt
+        else -> Angra.Recording
+    }
+    val content = if (enabled) Angra.TextPrimary else Angra.TextDisabled
+    Row(
+        modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .clip(RoundedCornerShape(percent = 50))
+            .background(container)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = Angra.s5),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Square while active, circle while idle: state survives colour loss.
+        Box(
+            Modifier
+                .size(if (active) 14.dp else 18.dp)
+                .clip(if (active) RoundedCornerShape(3.dp) else CircleShape)
+                .background(if (active) Angra.Recording else Angra.TextPrimary),
+        )
+        Text(
+            label,
+            Modifier.padding(start = Angra.s3),
+            color = content,
+            fontSize = Angra.titleSize,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
+
 /// Active-recording notice. States the mode in words and marks it with a shape,
 /// never relying on the red alone.
 @Composable
@@ -115,6 +160,9 @@ fun SettingRow(
     Row(
         modifier
             .fillMaxWidth()
+            .padding(horizontal = Angra.s4, vertical = Angra.s1)
+            .clip(RoundedCornerShape(Angra.radiusSm))
+            .background(Angra.Surface)
             .heightIn(min = Angra.touchTarget)
             .clickable { onCheckedChange(!checked) }
             .padding(horizontal = Angra.s4, vertical = Angra.s3),
@@ -142,6 +190,9 @@ fun InfoRow(title: String, value: String, modifier: Modifier = Modifier) {
     Row(
         modifier
             .fillMaxWidth()
+            .padding(horizontal = Angra.s4, vertical = Angra.s1)
+            .clip(RoundedCornerShape(Angra.radiusSm))
+            .background(Angra.Surface)
             .heightIn(min = Angra.touchTarget)
             .padding(horizontal = Angra.s4, vertical = Angra.s3),
         verticalAlignment = Alignment.CenterVertically,

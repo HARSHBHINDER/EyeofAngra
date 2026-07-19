@@ -8,10 +8,11 @@ import androidx.compose.ui.unit.sp
 /// dimension anywhere else in the app.
 object Angra {
 
-    // Surfaces — near-black foundation, two elevation steps.
-    val Background = Color(0xFF070707)
-    val Surface = Color(0xFF111113)
-    val SurfaceAlt = Color(0xFF19191D)
+    // Surfaces — near-black foundation, two elevation steps. Values taken from the
+    // brand reference's design-system panel.
+    val Background = Color(0xFF0A0A0C)
+    val Surface = Color(0xFF17181C)
+    val SurfaceAlt = Color(0xFF212228)
     val Divider = Color(0x1AF5F2EC)
 
     // Text — warm off-white, muted secondary. Secondary sits near 7:1 on Background.
@@ -20,12 +21,12 @@ object Angra {
     val TextDisabled = Color(0xFF5C5952)
 
     // Accent — gold marks selection and brand, never destructive or active-recording state.
-    val Gold = Color(0xFFD8AD55)
+    val Gold = Color(0xFFD4AF37)
     val GoldMuted = Color(0xFF8D713B)
     val Ember = Color(0xFFF4511E)
 
     // Semantic — recording red is reserved for active capture and nothing else.
-    val Recording = Color(0xFFD83232)
+    val Recording = Color(0xFFC62828)
     val Success = Color(0xFF42B56A)
     val Warning = Color(0xFFE0A030)
 

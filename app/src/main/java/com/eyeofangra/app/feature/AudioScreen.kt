@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.eyeofangra.app.RecorderService
 import com.eyeofangra.app.RecordingStore
-import com.eyeofangra.app.ui.components.CaptureButton
+import com.eyeofangra.app.ui.components.PillAction
 import com.eyeofangra.app.ui.components.RecordingBanner
 import com.eyeofangra.app.ui.theme.Angra
 import com.eyeofangra.app.ui.theme.TimerTextStyle
@@ -91,8 +91,11 @@ fun AudioScreen(activeMode: String?, elapsed: String, amplitude: Float) {
             )
         }
 
-        CaptureButton(
-            recording = recording,
+        // Audio has no viewfinder, so a labelled action beats a bare camera circle.
+        // Video and Photo keep the circular control, where the camera metaphor holds.
+        PillAction(
+            label = if (recording) "Stop" else "Start",
+            active = recording,
             enabled = !blockedByVideo,
             onClick = {
                 if (recording) {

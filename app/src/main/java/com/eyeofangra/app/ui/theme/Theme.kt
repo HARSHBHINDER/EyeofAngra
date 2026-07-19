@@ -4,7 +4,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 
 /// Material 3 gives accessibility and component behaviour; the palette is entirely
 /// EyeofAngra's. `pureBlack` drives the OLED-friendly Appearance option.
@@ -33,4 +35,16 @@ val TimerTextStyle = TextStyle(
     fontSize = Angra.timerSize,
     fontWeight = FontWeight.Light,
     color = Angra.TextPrimary,
+)
+
+/// Serif is reserved for the wordmark and onboarding title — never for buttons,
+/// settings, timers, warnings, or legal text.
+///
+/// ponytail: platform serif rather than Playfair Display; bundling the real face
+/// needs a font binary added to res/font. Swap the fontFamily here once it exists.
+val WordmarkTextStyle = TextStyle(
+    fontFamily = FontFamily.Serif,
+    fontSize = 34.sp,
+    fontWeight = FontWeight.Medium,
+    color = Angra.Gold,
 )
