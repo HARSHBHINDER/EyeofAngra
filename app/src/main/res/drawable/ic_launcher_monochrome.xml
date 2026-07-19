@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  EyeofAngra mark: ember flame around a single vigilant eye.
+  Monochrome variant: ember flame around a single vigilant eye.
 
-  Drawn as a vector so the launcher icon needs no binary asset and stays sharp at
-  every density. Content sits inside the adaptive-icon safe zone (the centre 72dp
-  of the 108dp viewport), so no part of it is lost to an aggressive mask.
+  The launcher icon proper is the Oni artwork in mipmap-*/ic_launcher_foreground.png.
+  This vector covers the two places that tint by alpha and would render full-colour
+  art as a featureless blob:
+    - themed ("monochrome") launcher icons
+    - the status-bar icon on the ongoing recording notification
 
-  To use the full Oni artwork instead: save it as ic_launcher_foreground.png into
-  app/src/main/res/mipmap-mdpi|hdpi|xhdpi|xxhdpi|xxxhdpi (108dp square, subject
-  inside the centre 72dp), then point ic_launcher.xml's foreground at
-  @mipmap/ic_launcher_foreground and delete this file.
+  Content sits inside the adaptive-icon safe zone (centre 72dp of the 108dp
+  viewport), so no mask clips it.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"

@@ -4,7 +4,8 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Sampled from the artwork's own plate so the foreground's edge is seamless. -->
     <path
-        android:fillColor="#0A0A0C"
+        android:fillColor="#0B0A0A"
         android:pathData="M0,0 h108 v108 h-108 z" />
 </vector>

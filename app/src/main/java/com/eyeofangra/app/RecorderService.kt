@@ -66,7 +66,9 @@ class RecorderService : LifecycleService() {
             this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
         )
         val notification = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(android.R.drawable.ic_menu_camera)
+            // Status-bar icons are alpha-masked, so this uses the monochrome
+            // silhouette; the full-colour artwork would render as a solid blob.
+            .setSmallIcon(R.drawable.ic_launcher_monochrome)
             .setContentTitle(if (mode == "video") "Recording video + audio" else "Recording audio")
             .setContentText("Evidence stays on this device. Open EyeofAngra to stop.")
             .setOngoing(true)

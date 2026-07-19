@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- minSdk is 26, so every supported device gets the adaptive icon and no
-     density-specific PNG fallback is needed. -->
+<!--
+  Foreground is the EyeofAngra artwork, pre-inset to the 72dp safe zone of the
+  108dp canvas so no launcher mask clips the flames.
+
+  Monochrome is a separate vector silhouette: themed icons are tinted by the
+  system using alpha only, which the full-colour artwork cannot express.
+-->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/ic_launcher_background" />
-    <foreground android:drawable="@drawable/ic_launcher_foreground" />
-    <monochrome android:drawable="@drawable/ic_launcher_foreground" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
 </adaptive-icon>

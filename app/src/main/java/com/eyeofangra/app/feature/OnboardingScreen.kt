@@ -55,9 +55,9 @@ fun OnboardingScreen(onFinish: () -> Unit) {
         when (step) {
             0 -> {
                 Image(
-                    painter = painterResource(R.drawable.ic_launcher_foreground),
+                    painter = painterResource(R.drawable.brand_mark),
                     contentDescription = null,
-                    modifier = Modifier.size(160.dp),
+                    modifier = Modifier.size(180.dp),
                 )
                 Text("EyeofAngra", style = WordmarkTextStyle)
                 Spacer(Modifier.height(Angra.s2))
