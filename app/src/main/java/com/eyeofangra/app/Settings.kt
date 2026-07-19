@@ -16,6 +16,7 @@ data class Settings(
     val haptics: Boolean = true,
     val keepScreenOn: Boolean = true,
     val volumeKeyShutter: Boolean = true,
+    val onboardingComplete: Boolean = false,
 )
 
 object SettingsStore {
@@ -23,6 +24,7 @@ object SettingsStore {
     private val HAPTICS = booleanPreferencesKey("haptics")
     private val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
     private val VOLUME_SHUTTER = booleanPreferencesKey("volume_shutter")
+    private val ONBOARDED = booleanPreferencesKey("onboarding_complete")
 
     fun flow(context: Context): Flow<Settings> = context.store.data.map { p ->
         Settings(
@@ -30,6 +32,7 @@ object SettingsStore {
             haptics = p[HAPTICS] ?: true,
             keepScreenOn = p[KEEP_SCREEN_ON] ?: true,
             volumeKeyShutter = p[VOLUME_SHUTTER] ?: true,
+            onboardingComplete = p[ONBOARDED] ?: false,
         )
     }
 
@@ -37,6 +40,7 @@ object SettingsStore {
     suspend fun setHaptics(context: Context, value: Boolean) = put(context, HAPTICS, value)
     suspend fun setKeepScreenOn(context: Context, value: Boolean) = put(context, KEEP_SCREEN_ON, value)
     suspend fun setVolumeShutter(context: Context, value: Boolean) = put(context, VOLUME_SHUTTER, value)
+    suspend fun setOnboardingComplete(context: Context, value: Boolean) = put(context, ONBOARDED, value)
 
     private suspend fun put(context: Context, key: Preferences.Key<Boolean>, value: Boolean) {
         context.store.edit { it[key] = value }

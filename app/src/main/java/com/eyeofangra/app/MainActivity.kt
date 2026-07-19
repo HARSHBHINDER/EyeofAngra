@@ -7,7 +7,6 @@ import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -21,6 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.eyeofangra.app.feature.AudioScreen
+import com.eyeofangra.app.feature.OnboardingScreen
+import com.eyeofangra.app.feature.PermissionGate
 import com.eyeofangra.app.feature.PhotoScreen
 import com.eyeofangra.app.feature.SettingsScreen
 import com.eyeofangra.app.feature.VaultScreen
@@ -38,18 +39,9 @@ class MainActivity : ComponentActivity() {
     /// there — everywhere else they stay volume keys, as users expect.
     private var volumeShutter: (() -> Unit)? = null
 
-    private val permissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // ponytail: permissions requested up front; phase 2 moves each behind an
-        // in-app rationale shown at first use of the feature that needs it.
-        val permissions = mutableListOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO)
-        if (Build.VERSION.SDK_INT >= 33) permissions += Manifest.permission.POST_NOTIFICATIONS
-        permissionLauncher.launch(permissions.toTypedArray())
-
+        // Permissions are requested by PermissionGate, at the feature that needs them.
         setContent { App(onVolumeShutter = { volumeShutter = it }) }
     }
 
@@ -97,18 +89,50 @@ private fun App(onVolumeShutter: ((() -> Unit)?) -> Unit) {
 
     LaunchedEffect(settings.keepScreenOn) { activity.setKeepScreenOn(settings.keepScreenOn) }
 
+    // Notification permission gates the ongoing recording notice on Android 13+.
+    val notify = if (Build.VERSION.SDK_INT >= 33) listOf(Manifest.permission.POST_NOTIFICATIONS) else emptyList()
+    val camera = Manifest.permission.CAMERA
+    val mic = Manifest.permission.RECORD_AUDIO
+
     EyeofAngraTheme(pureBlack = settings.pureBlack) {
         Surface(Modifier.fillMaxSize()) {
+            if (!settings.onboardingComplete) {
+                OnboardingScreen(
+                    onFinish = { scope.launch { SettingsStore.setOnboardingComplete(context, true) } },
+                )
+                return@Surface
+            }
             Shell { destination ->
                 when (destination) {
-                    Destination.Video -> VideoScreen(activeMode, elapsed)
-                    Destination.Audio -> AudioScreen(activeMode, elapsed, amplitude)
-                    Destination.Photo -> PhotoScreen(
-                        activeMode = activeMode,
-                        onVolumeShutter = { action ->
-                            onVolumeShutter(if (settings.volumeKeyShutter) action else null)
-                        },
-                    )
+                    Destination.Video -> PermissionGate(
+                        permissions = listOf(camera, mic) + notify,
+                        title = "Camera and microphone",
+                        rationale = "Video evidence needs the camera and the microphone. " +
+                            "Recording starts only when you press the capture control, and " +
+                            "Android shows an indicator the whole time it runs.",
+                    ) { VideoScreen(activeMode, elapsed) }
+
+                    Destination.Audio -> PermissionGate(
+                        permissions = listOf(mic) + notify,
+                        title = "Microphone",
+                        rationale = "Audio evidence needs the microphone. Recording starts only " +
+                            "when you press Start, and Android shows a microphone indicator " +
+                            "for as long as it runs.",
+                    ) { AudioScreen(activeMode, elapsed, amplitude) }
+
+                    Destination.Photo -> PermissionGate(
+                        permissions = listOf(camera),
+                        title = "Camera",
+                        rationale = "Evidence photos need the camera. Nothing is captured until " +
+                            "you tap the screen or press a volume key.",
+                    ) {
+                        PhotoScreen(
+                            activeMode = activeMode,
+                            onVolumeShutter = { action ->
+                                onVolumeShutter(if (settings.volumeKeyShutter) action else null)
+                            },
+                        )
+                    }
                     // activeMode drives the refresh: the list reloads the moment a
                     // recording finishes, without polling the filesystem.
                     Destination.Vault -> VaultScreen(refreshKey = activeMode)

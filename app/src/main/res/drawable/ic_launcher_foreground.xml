@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  EyeofAngra mark: ember flame around a single vigilant eye.
+
+  Drawn as a vector so the launcher icon needs no binary asset and stays sharp at
+  every density. Content sits inside the adaptive-icon safe zone (the centre 72dp
+  of the 108dp viewport), so no part of it is lost to an aggressive mask.
+
+  To use the full Oni artwork instead: save it as ic_launcher_foreground.png into
+  app/src/main/res/mipmap-mdpi|hdpi|xhdpi|xxhdpi|xxxhdpi (108dp square, subject
+  inside the centre 72dp), then point ic_launcher.xml's foreground at
+  @mipmap/ic_launcher_foreground and delete this file.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Flame body -->
+    <path
+        android:fillColor="#F4511E"
+        android:pathData="M54,24 C57,34 64,37 66,45 C67,49 65,53 63,56 C68,59 71,65 71,71 C71,80 63,86 54,86 C45,86 37,80 37,71 C37,65 40,59 45,56 C43,53 41,49 42,45 C44,37 51,34 54,24 Z" />
+
+    <!-- Outer flame licks, kept sparse: the brief warns against exaggerated fire -->
+    <path
+        android:fillColor="#C62828"
+        android:pathData="M40,38 C36,44 34,50 36,56 C32,51 32,43 40,38 Z" />
+    <path
+        android:fillColor="#C62828"
+        android:pathData="M68,38 C72,44 74,50 72,56 C76,51 76,43 68,38 Z" />
+
+    <!-- Eye: the name made literal. Dark sclera keeps the gold iris legible. -->
+    <path
+        android:fillColor="#0A0A0C"
+        android:pathData="M41,64 C46,57 62,57 67,64 C62,71 46,71 41,64 Z" />
+    <path
+        android:fillColor="#D4AF37"
+        android:pathData="M54,64 m-5.4,0 a5.4,5.4 0 1,0 10.8,0 a5.4,5.4 0 1,0 -10.8,0" />
+    <path
+        android:fillColor="#0A0A0C"
+        android:pathData="M54,64 m-2.4,0 a2.4,2.4 0 1,0 4.8,0 a2.4,2.4 0 1,0 -4.8,0" />
+</vector>

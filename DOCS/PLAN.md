@@ -9,7 +9,8 @@ Recording always requires deliberate user action and is always visibly indicated
 |---|---|---|
 | 0 | Working capture core: video+audio / audio-only foreground service, photo, file store | **Done** (pre-existing, retained) |
 | 1 | Design tokens, theme, app shell, 5 destinations, real Vault + Settings, brand icons | **Done** |
-| 2 | Onboarding, contextual permission rationale, capability repository | Not started |
+| 2a | Launcher icon, onboarding, contextual permission rationale | **Done** |
+| 2b | Capability repository, device compatibility screen, onboarding security step | Not started |
 | 3 | Photo polish: focus, zoom, exposure, flash/torch split, timer, aspect ratio | Not started |
 | 4 | Video polish: quality selection, pause/resume, notification actions, recovery | Not started |
 | 5 | Audio polish: level meter, quality presets, markers, segmentation | Not started |
@@ -112,8 +113,10 @@ Not requested, and will not be: `INTERNET`, location, contacts, SMS, call log,
 accessibility service, overlay, device admin, `MANAGE_EXTERNAL_STORAGE`.
 Phase 2 adds location strictly behind an explicit geotagging opt-in, default off.
 
-Currently permissions are requested at launch. Phase 2 moves each to the moment
-of first use with an in-app rationale shown before the system dialog.
+Permissions are requested by `PermissionGate` at the destination that needs them,
+with an in-app rationale shown before the system dialog. Once a permission is
+permanently denied the OS stops prompting, so the gate offers a route to app
+settings rather than a button that would do nothing.
 
 ## Storage model
 
@@ -170,13 +173,15 @@ tests worth running.
 
 ## Known incomplete work
 
-- **Launcher icon.** The build currently uses a platform placeholder. The brand Oni
-  artwork must be added manually as `app/src/main/res/mipmap-*/ic_launcher.png` plus
-  an adaptive-icon XML; binary assets cannot be generated from source here.
-- Permissions are requested at launch, not contextually (phase 2).
+- **Launcher icon** is a vector interpretation of the brand — ember flame around a
+  single eye — drawn in `res/drawable/ic_launcher_foreground.xml`. It ships working
+  and needs no binary. To use the full Oni artwork instead, add it as
+  `res/mipmap-*/ic_launcher_foreground.png` and repoint the `<foreground>` in
+  `res/mipmap-anydpi-v26/ic_launcher.xml`; the swap is documented in the vector file.
 - Pause/resume, quality selection, and notification actions are absent (phases 4–5).
-- No onboarding flow yet (phase 2).
 - No tests yet (phase 8).
+- **Nothing is hardware-verified.** CI proves the project compiles; no phase should
+  be called verified until it has run on a real device.
 
 Nothing above is stubbed in the UI: controls that do not yet exist are absent
 rather than present and inert.
