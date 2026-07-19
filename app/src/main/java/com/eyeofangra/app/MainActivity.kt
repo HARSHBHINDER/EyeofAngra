@@ -27,21 +27,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Face
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -97,10 +90,10 @@ fun App(activity: MainActivity) {
     var tab by remember { mutableIntStateOf(0) }
     Scaffold(bottomBar = {
         NavigationBar {
-            NavigationBarItem(tab == 0, { tab = 0 }, { Icon(Icons.Filled.PlayArrow, null) }, label = { Text("Video") })
-            NavigationBarItem(tab == 1, { tab = 1 }, { Icon(Icons.Filled.Call, null) }, label = { Text("Audio") })
-            NavigationBarItem(tab == 2, { tab = 2 }, { Icon(Icons.Filled.Face, null) }, label = { Text("Photo") })
-            NavigationBarItem(tab == 3, { tab = 3 }, { Icon(Icons.Filled.Info, null) }, label = { Text("Info") })
+            NavigationBarItem(tab == 0, { tab = 0 }, icon = {}, label = { Text("Video") })
+            NavigationBarItem(tab == 1, { tab = 1 }, icon = {}, label = { Text("Audio") })
+            NavigationBarItem(tab == 2, { tab = 2 }, icon = {}, label = { Text("Photo") })
+            NavigationBarItem(tab == 3, { tab = 3 }, icon = {}, label = { Text("Info") })
         }
     }) { padding ->
         Box(Modifier.padding(padding)) {
@@ -167,9 +160,7 @@ fun FileList(files: List<File>, refresh: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(file.name, Modifier.weight(1f))
-                IconButton(onClick = { file.delete(); refresh() }) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Delete ${file.name}")
-                }
+                TextButton(onClick = { file.delete(); refresh() }) { Text("Delete") }
             }
         }
     }
