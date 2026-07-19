@@ -8,20 +8,17 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.MediaRecorder
 import android.os.PowerManager
-import androidx.camera.core.CameraSelector
-import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.video.FallbackStrategy
 import androidx.camera.video.FileOutputOptions
-import androidx.camera.video.Quality
-import androidx.camera.video.QualitySelector
-import androidx.camera.video.Recorder
 import androidx.camera.video.Recording
-import androidx.camera.video.VideoCapture
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 /// Foreground service that records video+audio or audio-only. The foreground service
 /// (with camera/microphone types) is what lets recording continue while the screen is
@@ -31,8 +28,14 @@ class RecorderService : LifecycleService() {
 
     companion object {
         const val EXTRA_MODE = "mode" // "video" or "audio"
-        /// Observed by the UI. null = idle.
+        /// Observed by the UI. null = idle. The service owns this; screens never
+        /// keep a competing copy, so the UI cannot show Idle while capture runs.
         val activeMode = MutableStateFlow<String?>(null)
+        /// Elapsed-time origin, so a timer survives the screen being recreated.
+        val startedAt = MutableStateFlow<Long?>(null)
+        /// Real microphone amplitude, 0f..1f. Drives the audio level meter — the
+        /// meter shows what the microphone actually hears, never a canned animation.
+        val amplitude = MutableStateFlow(0f)
     }
 
     private var audioRecorder: MediaRecorder? = null
@@ -48,6 +51,7 @@ class RecorderService : LifecycleService() {
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "eyeofangra:recording")
             .apply { acquire() }
         if (mode == "video") startVideo() else startAudio()
+        startedAt.value = System.currentTimeMillis()
         activeMode.value = mode
         return START_NOT_STICKY
     }
@@ -77,23 +81,14 @@ class RecorderService : LifecycleService() {
 
     @SuppressLint("MissingPermission") // UI blocks start until permissions granted
     private fun startVideo() {
-        val future = ProcessCameraProvider.getInstance(this)
-        future.addListener({
-            val provider = future.get()
-            val recorder = Recorder.Builder()
-                .setQualitySelector(
-                    QualitySelector.from(Quality.HIGHEST, FallbackStrategy.lowerQualityOrHigherThan(Quality.SD))
-                )
-                .build()
-            val videoCapture = VideoCapture.withOutput(recorder)
-            provider.unbindAll()
-            provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, videoCapture)
+        // Bound to this service, not to the activity: that is what survives screen lock.
+        CameraEngine.bindForRecording(this, this) { capture ->
             val file = RecordingStore.newFile(this, "VID", "mp4")
-            videoRecording = recorder
+            videoRecording = capture.output
                 .prepareRecording(this, FileOutputOptions.Builder(file).build())
                 .withAudioEnabled()
                 .start(ContextCompat.getMainExecutor(this)) { }
-        }, ContextCompat.getMainExecutor(this))
+        }
     }
 
     private fun startAudio() {
@@ -107,6 +102,14 @@ class RecorderService : LifecycleService() {
             prepare()
             start()
         }
+        lifecycleScope.launch {
+            // MediaRecorder reports a 0..32767 peak since the previous call.
+            while (isActive) {
+                val peak = runCatching { audioRecorder?.maxAmplitude ?: 0 }.getOrDefault(0)
+                amplitude.value = (peak / 32767f).coerceIn(0f, 1f)
+                delay(100)
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -118,7 +121,10 @@ class RecorderService : LifecycleService() {
             release()
         }
         audioRecorder = null
+        CameraEngine.release()
         wakeLock?.release()
+        amplitude.value = 0f
+        startedAt.value = null
         activeMode.value = null
         super.onDestroy()
     }

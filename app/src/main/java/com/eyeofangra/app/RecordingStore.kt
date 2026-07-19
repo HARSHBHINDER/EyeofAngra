@@ -30,6 +30,20 @@ object RecordingStore {
         dir(context).listFiles { f -> f.name.startsWith("${prefix}_") }
             ?.sortedByDescending { it.name } ?: emptyList()
 
+    /// Free space on the volume holding private media.
+    fun freeBytes(context: Context): Long = dir(context).usableSpace
+
+    /// Total size of everything this app has captured.
+    fun usedBytes(context: Context): Long =
+        dir(context).listFiles()?.sumOf { it.length() } ?: 0L
+
+    fun formatBytes(bytes: Long): String = when {
+        bytes >= 1_000_000_000 -> "%.1f GB".format(bytes / 1_000_000_000.0)
+        bytes >= 1_000_000 -> "%.0f MB".format(bytes / 1_000_000.0)
+        bytes >= 1_000 -> "%.0f KB".format(bytes / 1_000.0)
+        else -> "$bytes B"
+    }
+
     /// Hands playback/viewing to whatever player the device already has.
     fun open(context: Context, file: File) {
         val uri = FileProvider.getUriForFile(context, "com.eyeofangra.app.files", file)

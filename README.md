@@ -7,19 +7,30 @@ Android sibling of [LifeLine Recorder](https://github.com/HARSHBHINDER/LifeLineR
 
 ## Features
 
-- **Video** — one-button evidence video (video + audio) saved as
-  `VID_YYYYMMDD_HHMMSS.mp4`. **Keeps recording with the screen locked** (runs
-  as a foreground service with a permanent notification). Stops only when you
-  unlock and press Stop.
-- **Audio** — same, audio-only, saved as `AUD_YYYYMMDD_HHMMSS.m4a`.
-- **Photo** — black screen; **tap anywhere or press either volume button** to
-  take an evidence photo (`IMG_YYYYMMDD_HHMMSS.jpg`) — built for shaking hands
-  in tense situations. Brief "Photo captured" confirmation.
-- **Safety & Legal** — what is recorded, local-only storage, your legal
-  responsibility.
+Five destinations: Video, Audio, Photo, Vault, Settings.
 
-Tap any recording in a list to play/view it; trash icon deletes it. No cloud,
-no analytics, no accounts, no third-party services.
+- **Video** — live viewfinder, one capture control, elapsed timer, storage
+  readout. Saved as `VID_YYYYMMDD_HHMMSS.mp4`. **Keeps recording with the
+  screen locked** via a foreground service with an ongoing notification. Stops
+  only when you return and press Stop.
+- **Audio** — dedicated screen with a large timer and a level meter driven by
+  real microphone amplitude. Saved as `AUD_YYYYMMDD_HHMMSS.m4a`. Also survives
+  screen lock.
+- **Photo** — full-bleed preview; **tap anywhere or press either volume key**
+  to capture (`IMG_YYYYMMDD_HHMMSS.jpg`), built for unsteady hands. Status
+  reports Saving, Saved, or Failed — never Saved before the file is finalised.
+- **Vault** — everything captured, filterable by type, with a storage summary.
+  Tap to play or view; delete asks for confirmation first.
+- **Settings** — capture, recording behaviour, appearance, storage,
+  permissions, and the full Safety & Legal text.
+
+Only one recording runs at a time: video and audio both need the microphone,
+and the app says so rather than letting the second attempt fail silently.
+
+No cloud, no analytics, no accounts, no network permission at all.
+
+Architecture, phased plan, permission matrix, storage model, and the recording
+state machine are documented in [DOCS/PLAN.md](DOCS/PLAN.md).
 
 ## Install (free, no expiry)
 
