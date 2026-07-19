@@ -25,7 +25,6 @@ object CameraEngine {
     val imageCapture: ImageCapture by lazy { ImageCapture.Builder().build() }
 
     private var provider: ProcessCameraProvider? = null
-    private var videoCapture: VideoCapture<Recorder>? = null
 
     private fun withProvider(context: Context, block: (ProcessCameraProvider) -> Unit) {
         provider?.let { block(it); return }
@@ -51,8 +50,13 @@ object CameraEngine {
         }
     }
 
-    /// Viewfinder plus recording, bound to the caller's lifecycle. The service is the
-    /// only caller: its lifecycle is what keeps capture alive behind a locked screen.
+    /// Recording only — deliberately no Preview in this binding.
+    ///
+    /// Binding a viewfinder to the service means the camera keeps producing preview
+    /// frames into a surface the system destroys at screen lock, then reconfigures the
+    /// capture session when a new surface arrives at unlock. Reconfiguring a live
+    /// session stutters the encoder and freezes frames. Evidence integrity outranks a
+    /// viewfinder, so while recording there is no preview at all.
     fun bindForRecording(
         context: Context,
         owner: LifecycleOwner,
@@ -69,18 +73,16 @@ object CameraEngine {
                 .build()
             val capture = VideoCapture.withOutput(recorder)
             val bound = runCatching {
+                // Drops the activity's Preview binding, so nothing renders while
+                // recording and the session is never reconfigured mid-capture.
                 p.unbindAll()
-                p.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture)
+                p.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, capture)
             }.isSuccess
-            if (bound) {
-                videoCapture = capture
-                onReady(capture)
-            }
+            if (bound) onReady(capture)
         }
     }
 
     fun release() {
         runCatching { provider?.unbindAll() }
-        videoCapture = null
     }
 }

@@ -29,22 +29,25 @@ import com.eyeofangra.app.CameraEngine
 import com.eyeofangra.app.CameraPreview
 import com.eyeofangra.app.RecorderService
 import com.eyeofangra.app.RecordingStore
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.eyeofangra.app.ui.components.CaptureButton
 import com.eyeofangra.app.ui.components.RecordingBanner
+import com.eyeofangra.app.ui.components.rememberElapsed
 import com.eyeofangra.app.ui.theme.Angra
 import kotlinx.coroutines.delay
 
 @Composable
-fun VideoScreen(activeMode: String?, elapsed: String) {
+fun VideoScreen(activeMode: String?) {
     val context = LocalContext.current
     val owner = LocalLifecycleOwner.current
+    val startedAt by RecorderService.startedAt.collectAsStateWithLifecycle()
+    val elapsed = rememberElapsed(startedAt)
     val recording = activeMode == "video"
     val blockedByAudio = activeMode == "audio"
     var free by remember { mutableStateOf(RecordingStore.formatBytes(RecordingStore.freeBytes(context))) }
 
-    // While idle the screen owns the viewfinder. Once recording starts the service
-    // rebinds the same Preview to its own lifecycle, so the surface keeps working
-    // and capture survives the screen locking.
+    // The viewfinder belongs to the activity and exists only while idle. When a
+    // recording stops, this re-binds it; while recording, nothing is bound here.
     DisposableEffect(recording, blockedByAudio) {
         if (!recording && !blockedByAudio) {
             CameraEngine.bindPreview(context, owner, withPhoto = false)
@@ -61,15 +64,23 @@ fun VideoScreen(activeMode: String?, elapsed: String) {
     }
 
     Box(Modifier.fillMaxSize().background(Angra.Background)) {
-        if (blockedByAudio) {
-            Text(
+        when {
+            blockedByAudio -> Text(
                 "Audio recording is running.\nStop it before recording video — both need the microphone.",
                 Modifier.align(Alignment.Center).padding(Angra.s5),
                 color = Angra.TextSecondary,
                 textAlign = TextAlign.Center,
             )
-        } else {
-            CameraPreview(Modifier.fillMaxSize())
+            // No viewfinder while recording: the camera feeds the encoder alone, so
+            // locking and unlocking the screen cannot disturb the capture session.
+            recording -> Text(
+                "Recording in progress.\n\nThe viewfinder is off so the recording stays " +
+                    "smooth while the screen locks. Capture is unaffected.",
+                Modifier.align(Alignment.Center).padding(Angra.s5),
+                color = Angra.TextSecondary,
+                textAlign = TextAlign.Center,
+            )
+            else -> CameraPreview(Modifier.fillMaxSize())
         }
 
         Column(
@@ -111,7 +122,7 @@ fun VideoScreen(activeMode: String?, elapsed: String) {
 
 /// Live capture facts, kept legible over arbitrary preview content by its own surface.
 @Composable
-fun StatusStrip(elapsed: String, free: String, mic: String) {
+private fun StatusStrip(elapsed: String, free: String, mic: String) {
     Row(
         Modifier
             .clip(RoundedCornerShape(Angra.radiusSm))

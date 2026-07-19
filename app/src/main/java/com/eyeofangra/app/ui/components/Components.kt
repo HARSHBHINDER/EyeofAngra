@@ -20,17 +20,25 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.eyeofangra.app.ui.theme.Angra
+import kotlinx.coroutines.delay
+import java.util.Locale
 
 /// Familiar camera affordance: ring plus centre. The centre morphs from circle to
 /// rounded square when active, so "recording" is carried by shape as well as colour.
@@ -56,11 +64,17 @@ fun CaptureButton(
         !enabled -> Angra.TextDisabled
         else -> Angra.Recording
     }
+    // Platform haptics already honour the system's own vibration setting, so no
+    // in-app toggle is needed to turn this off.
+    val haptics = LocalHapticFeedback.current
     Box(
         modifier
             .size(84.dp)
             .border(3.dp, ring, CircleShape)
-            .clickable(enabled = enabled, onClick = onClick)
+            .clickable(enabled = enabled) {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                onClick()
+            }
             .semantics {
                 contentDescription = if (recording) "Stop recording" else "Start recording"
                 stateDescription = if (recording) "Recording" else "Idle"
@@ -74,6 +88,29 @@ fun CaptureButton(
                 .background(centre),
         )
     }
+}
+
+/// Ticks elapsed time off the service's start timestamp, so it stays correct across
+/// rotation and process recreation.
+///
+/// It lives here rather than in the root composable on purpose: a clock high in the
+/// tree recomposes every screen and the whole navigation bar twice a second. Only the
+/// screen that displays the time should pay for it.
+@Composable
+fun rememberElapsed(startedAt: Long?): String {
+    var text by remember { mutableStateOf("00:00") }
+    LaunchedEffect(startedAt) {
+        if (startedAt == null) {
+            text = "00:00"
+        } else {
+            while (true) {
+                val seconds = ((System.currentTimeMillis() - startedAt) / 1000).coerceAtLeast(0)
+                text = String.format(Locale.US, "%02d:%02d", seconds / 60, seconds % 60)
+                delay(500)
+            }
+        }
+    }
+    return text
 }
 
 /// Wide labelled action, used where there is no viewfinder to anchor a camera-style
@@ -93,13 +130,17 @@ fun PillAction(
         else -> Angra.Recording
     }
     val content = if (enabled) Angra.TextPrimary else Angra.TextDisabled
+    val haptics = LocalHapticFeedback.current
     Row(
         modifier
             .fillMaxWidth()
             .heightIn(min = 64.dp)
             .clip(RoundedCornerShape(percent = 50))
             .background(container)
-            .clickable(enabled = enabled, onClick = onClick)
+            .clickable(enabled = enabled) {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                onClick()
+            }
             .padding(horizontal = Angra.s5),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,

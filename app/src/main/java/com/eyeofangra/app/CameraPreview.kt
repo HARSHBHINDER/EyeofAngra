@@ -15,8 +15,14 @@ fun CameraPreview(modifier: Modifier = Modifier) {
         factory = { context ->
             PreviewView(context).apply {
                 scaleType = PreviewView.ScaleType.FILL_CENTER
+                // COMPATIBLE renders through a TextureView. The default SurfaceView is
+                // faster but loses its surface when the screen locks, which showed up
+                // on device as frozen frames after unlocking.
+                implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                 CameraEngine.preview.setSurfaceProvider(surfaceProvider)
             }
         },
+        // Re-attach after the view is recreated; setting the same provider is a no-op.
+        update = { CameraEngine.preview.setSurfaceProvider(it.surfaceProvider) },
     )
 }

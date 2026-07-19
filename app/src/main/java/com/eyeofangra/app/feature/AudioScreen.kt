@@ -29,27 +29,34 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.eyeofangra.app.RecorderService
 import com.eyeofangra.app.RecordingStore
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.eyeofangra.app.ui.components.PillAction
 import com.eyeofangra.app.ui.components.RecordingBanner
+import com.eyeofangra.app.ui.components.rememberElapsed
 import com.eyeofangra.app.ui.theme.Angra
 import com.eyeofangra.app.ui.theme.TimerTextStyle
 import kotlinx.coroutines.delay
 
 @Composable
-fun AudioScreen(activeMode: String?, elapsed: String, amplitude: Float) {
+fun AudioScreen(activeMode: String?) {
     val context = LocalContext.current
+    val startedAt by RecorderService.startedAt.collectAsStateWithLifecycle()
+    val elapsed = rememberElapsed(startedAt)
     val recording = activeMode == "audio"
     val blockedByVideo = activeMode == "video"
     val levels = remember { mutableStateListOf<Float>() }
     var free by remember { mutableStateOf(RecordingStore.formatBytes(RecordingStore.freeBytes(context))) }
 
-    // Roll real microphone levels into a scrolling history.
-    LaunchedEffect(recording, amplitude) {
-        if (recording) {
-            levels.add(amplitude)
-            if (levels.size > 60) levels.removeAt(0)
-        } else if (levels.isNotEmpty()) {
+    // Collect inside one coroutine. Keying the effect on amplitude instead would tear
+    // down and restart it ten times a second, which is pure jank.
+    LaunchedEffect(recording) {
+        if (!recording) {
             levels.clear()
+            return@LaunchedEffect
+        }
+        RecorderService.amplitude.collect { level ->
+            levels.add(level)
+            if (levels.size > 60) levels.removeAt(0)
         }
     }
     LaunchedEffect(recording) {

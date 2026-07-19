@@ -23,7 +23,6 @@ object Angra {
     // Accent — gold marks selection and brand, never destructive or active-recording state.
     val Gold = Color(0xFFD4AF37)
     val GoldMuted = Color(0xFF8D713B)
-    val Ember = Color(0xFFF4511E)
 
     // Semantic — recording red is reserved for active capture and nothing else.
     val Recording = Color(0xFFC62828)
@@ -42,16 +41,10 @@ object Angra {
     // Corner radii.
     val radiusSm = 12.dp
     val radiusMd = 20.dp
-    val radiusLg = 28.dp
 
     // Minimum touch target, per platform guidance.
     val touchTarget = 48.dp
     val iconSize = 24.dp
-
-    // Motion, milliseconds. Overridden to 0 when the system asks for reduced motion.
-    const val MOTION_FAST = 180
-    const val MOTION_STANDARD = 240
-    const val MOTION_SLOW = 300
 
     // Type sizes. Timers use tabular figures so digits do not jitter while counting.
     val timerSize = 56.sp

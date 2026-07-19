@@ -13,7 +13,6 @@ private val Context.store by preferencesDataStore("settings")
 /// Every preference here changes real behaviour. Nothing is stored that nothing reads.
 data class Settings(
     val pureBlack: Boolean = false,
-    val haptics: Boolean = true,
     val keepScreenOn: Boolean = true,
     val volumeKeyShutter: Boolean = true,
     val onboardingComplete: Boolean = false,
@@ -21,7 +20,6 @@ data class Settings(
 
 object SettingsStore {
     private val PURE_BLACK = booleanPreferencesKey("pure_black")
-    private val HAPTICS = booleanPreferencesKey("haptics")
     private val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
     private val VOLUME_SHUTTER = booleanPreferencesKey("volume_shutter")
     private val ONBOARDED = booleanPreferencesKey("onboarding_complete")
@@ -29,7 +27,6 @@ object SettingsStore {
     fun flow(context: Context): Flow<Settings> = context.store.data.map { p ->
         Settings(
             pureBlack = p[PURE_BLACK] ?: false,
-            haptics = p[HAPTICS] ?: true,
             keepScreenOn = p[KEEP_SCREEN_ON] ?: true,
             volumeKeyShutter = p[VOLUME_SHUTTER] ?: true,
             onboardingComplete = p[ONBOARDED] ?: false,
@@ -37,7 +34,6 @@ object SettingsStore {
     }
 
     suspend fun setPureBlack(context: Context, value: Boolean) = put(context, PURE_BLACK, value)
-    suspend fun setHaptics(context: Context, value: Boolean) = put(context, HAPTICS, value)
     suspend fun setKeepScreenOn(context: Context, value: Boolean) = put(context, KEEP_SCREEN_ON, value)
     suspend fun setVolumeShutter(context: Context, value: Boolean) = put(context, VOLUME_SHUTTER, value)
     suspend fun setOnboardingComplete(context: Context, value: Boolean) = put(context, ONBOARDED, value)

@@ -36,7 +36,6 @@ import com.eyeofangra.app.ui.theme.Angra
 fun SettingsScreen(
     settings: Settings,
     onPureBlack: (Boolean) -> Unit,
-    onHaptics: (Boolean) -> Unit,
     onKeepScreenOn: (Boolean) -> Unit,
     onVolumeShutter: (Boolean) -> Unit,
 ) {
@@ -61,12 +60,6 @@ fun SettingsScreen(
             "Press either volume key to take a photo on the Photo screen",
             settings.volumeKeyShutter, onVolumeShutter,
         )
-        SettingRow(
-            "Capture haptics",
-            "Vibrate when a capture starts or stops",
-            settings.haptics, onHaptics,
-        )
-
         SectionHeader("Recording behaviour")
         SettingRow(
             "Keep screen awake",
