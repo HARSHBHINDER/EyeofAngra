@@ -53,6 +53,9 @@ class RecorderService : LifecycleService() {
         if (mode == "video") startVideo() else startAudio()
         startedAt.value = System.currentTimeMillis()
         activeMode.value = mode
+        // Lock the screen so the phone looks off; capture continues in this
+        // foreground service. No-op unless the user enabled it in Settings.
+        ScreenLock.lockNow(this)
         return START_NOT_STICKY
     }
 

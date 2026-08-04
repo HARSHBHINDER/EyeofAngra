@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.eyeofangra.app.ui.theme.Angra
 import kotlinx.coroutines.delay
 import java.util.Locale
@@ -70,6 +71,8 @@ fun CaptureButton(
     Box(
         modifier
             .size(84.dp)
+            // v2.0: faint gold halo when idle marks the button as the brand's focal control.
+            .border(6.dp, if (recording) Color.Transparent else Angra.GoldSoft, CircleShape)
             .border(3.dp, ring, CircleShape)
             .clickable(enabled = enabled) {
                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -188,6 +191,7 @@ fun SectionHeader(text: String, modifier: Modifier = Modifier) {
         color = Angra.Gold,
         fontSize = Angra.labelSize,
         fontWeight = FontWeight.SemiBold,
+        letterSpacing = 2.sp,
     )
 }
 
@@ -203,8 +207,9 @@ fun SettingRow(
         modifier
             .fillMaxWidth()
             .padding(horizontal = Angra.s4, vertical = Angra.s1)
-            .clip(RoundedCornerShape(Angra.radiusSm))
+            .clip(RoundedCornerShape(Angra.radiusMd))
             .background(Angra.Surface)
+            .border(Angra.hairline, Angra.CardBorder, RoundedCornerShape(Angra.radiusMd))
             .heightIn(min = Angra.touchTarget)
             .clickable { onCheckedChange(!checked) }
             .padding(horizontal = Angra.s4, vertical = Angra.s3),
@@ -233,8 +238,9 @@ fun InfoRow(title: String, value: String, modifier: Modifier = Modifier) {
         modifier
             .fillMaxWidth()
             .padding(horizontal = Angra.s4, vertical = Angra.s1)
-            .clip(RoundedCornerShape(Angra.radiusSm))
+            .clip(RoundedCornerShape(Angra.radiusMd))
             .background(Angra.Surface)
+            .border(Angra.hairline, Angra.CardBorder, RoundedCornerShape(Angra.radiusMd))
             .heightIn(min = Angra.touchTarget)
             .padding(horizontal = Angra.s4, vertical = Angra.s3),
         verticalAlignment = Alignment.CenterVertically,

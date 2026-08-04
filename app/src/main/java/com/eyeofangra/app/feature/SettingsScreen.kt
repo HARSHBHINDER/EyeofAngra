@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.Settings as AndroidSettings
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,6 +26,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import com.eyeofangra.app.RecordingStore
+import com.eyeofangra.app.ScreenLock
 import com.eyeofangra.app.Settings
 import com.eyeofangra.app.ui.components.BodyText
 import com.eyeofangra.app.ui.components.InfoRow
@@ -65,6 +67,15 @@ fun SettingsScreen(
             "Keep screen awake",
             "Stop the display sleeping while a capture screen is open",
             settings.keepScreenOn, onKeepScreenOn,
+        )
+        SettingRow(
+            "Lock screen when recording starts",
+            "Turns the display off the instant a capture begins; recording keeps going",
+            ScreenLock.isEnabled(context),
+            onCheckedChange = { enable ->
+                if (enable) (context as? android.app.Activity)?.let { ScreenLock.requestAdmin(it) }
+                else ScreenLock.disable(context)
+            },
         )
         BodyText(
             "Recording continues when the screen locks. Android requires an ongoing " +
@@ -150,8 +161,9 @@ private fun LinkRow(label: String, onClick: () -> Unit) {
         Modifier
             .fillMaxWidth()
             .padding(horizontal = Angra.s4, vertical = Angra.s1)
-            .clip(RoundedCornerShape(Angra.radiusSm))
+            .clip(RoundedCornerShape(Angra.radiusMd))
             .background(Angra.Surface)
+            .border(Angra.hairline, Angra.CardBorder, RoundedCornerShape(Angra.radiusMd))
             .clickable(onClick = onClick)
             .heightIn(min = Angra.touchTarget)
             .padding(horizontal = Angra.s4, vertical = Angra.s3),

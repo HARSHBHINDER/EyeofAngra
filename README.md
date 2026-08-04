@@ -3,7 +3,17 @@
 A minimal, open-source Android app for emergency evidence capture — for people
 whose safety, life, or freedom may be at risk. Everything stays on your device.
 
-Android sibling of [LifeLine Recorder](https://github.com/HARSHBHINDER/LifeLineRecorder) (iOS).
+iOS sibling: [EyeofAngra for iPhone](https://github.com/HARSHBHINDER/EyeofAngra-iOS).
+
+<p align="center">
+  <a href="https://github.com/HARSHBHINDER/EyeofAngra/raw/main/APKs/EyeofAngra-v1.0.apk">
+    <img src="https://img.shields.io/badge/⬇%20Download-v1.0-2EA44F?style=for-the-badge&logo=android&logoColor=white" alt="Download version 1.0">
+  </a>
+  &nbsp;
+  <a href="https://github.com/HARSHBHINDER/EyeofAngra/raw/main/APKs/EyeofAngra-v2.0.apk">
+    <img src="https://img.shields.io/badge/⬇%20Download-v2.0-2EA44F?style=for-the-badge&logo=android&logoColor=white" alt="Download version 2.0">
+  </a>
+</p>
 
 ## Features
 

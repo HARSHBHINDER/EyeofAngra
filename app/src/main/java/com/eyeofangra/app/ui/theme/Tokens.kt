@@ -23,6 +23,9 @@ object Angra {
     // Accent — gold marks selection and brand, never destructive or active-recording state.
     val Gold = Color(0xFFD4AF37)
     val GoldMuted = Color(0xFF8D713B)
+    // v2.0 premium tokens: a faint gold wash for glows, a hairline for card edges.
+    val GoldSoft = Color(0x1FD4AF37)
+    val CardBorder = Color(0x33D4AF37)
 
     // Semantic — recording red is reserved for active capture and nothing else.
     val Recording = Color(0xFFC62828)
@@ -41,6 +44,8 @@ object Angra {
     // Corner radii.
     val radiusSm = 12.dp
     val radiusMd = 20.dp
+    val radiusLg = 28.dp
+    val hairline = 1.dp
 
     // Minimum touch target, per platform guidance.
     val touchTarget = 48.dp
