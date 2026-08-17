@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -16,6 +17,10 @@ data class Settings(
     val keepScreenOn: Boolean = true,
     val volumeKeyShutter: Boolean = true,
     val onboardingComplete: Boolean = false,
+    /// Off: captures go to this app's private storage ("on board"). On: they go to
+    /// [storageUri], the folder the user picked.
+    val customStorage: Boolean = false,
+    val storageUri: String? = null,
 )
 
 object SettingsStore {
@@ -23,6 +28,8 @@ object SettingsStore {
     private val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
     private val VOLUME_SHUTTER = booleanPreferencesKey("volume_shutter")
     private val ONBOARDED = booleanPreferencesKey("onboarding_complete")
+    private val CUSTOM_STORAGE = booleanPreferencesKey("custom_storage")
+    private val STORAGE_URI = stringPreferencesKey("storage_uri")
 
     fun flow(context: Context): Flow<Settings> = context.store.data.map { p ->
         Settings(
@@ -30,6 +37,8 @@ object SettingsStore {
             keepScreenOn = p[KEEP_SCREEN_ON] ?: true,
             volumeKeyShutter = p[VOLUME_SHUTTER] ?: true,
             onboardingComplete = p[ONBOARDED] ?: false,
+            customStorage = p[CUSTOM_STORAGE] ?: false,
+            storageUri = p[STORAGE_URI],
         )
     }
 
@@ -37,6 +46,11 @@ object SettingsStore {
     suspend fun setKeepScreenOn(context: Context, value: Boolean) = put(context, KEEP_SCREEN_ON, value)
     suspend fun setVolumeShutter(context: Context, value: Boolean) = put(context, VOLUME_SHUTTER, value)
     suspend fun setOnboardingComplete(context: Context, value: Boolean) = put(context, ONBOARDED, value)
+    suspend fun setCustomStorage(context: Context, value: Boolean) = put(context, CUSTOM_STORAGE, value)
+
+    suspend fun setStorageUri(context: Context, value: String?) {
+        context.store.edit { if (value == null) it.remove(STORAGE_URI) else it[STORAGE_URI] = value }
+    }
 
     private suspend fun put(context: Context, key: Preferences.Key<Boolean>, value: Boolean) {
         context.store.edit { it[key] = value }

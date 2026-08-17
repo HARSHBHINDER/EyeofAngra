@@ -7,7 +7,9 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.MediaRecorder
+import android.os.ParcelFileDescriptor
 import android.os.PowerManager
+import androidx.camera.video.FileDescriptorOutputOptions
 import androidx.camera.video.FileOutputOptions
 import androidx.camera.video.Recording
 import androidx.core.app.NotificationCompat
@@ -41,6 +43,8 @@ class RecorderService : LifecycleService() {
     private var audioRecorder: MediaRecorder? = null
     private var videoRecording: Recording? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    // Held open while writing to a user-chosen folder; closed when recording ends.
+    private var outputPfd: ParcelFileDescriptor? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
@@ -88,22 +92,37 @@ class RecorderService : LifecycleService() {
     private fun startVideo() {
         // Bound to this service, not to the activity: that is what survives screen lock.
         CameraEngine.bindForRecording(this, this) { capture ->
-            val file = RecordingStore.newFile(this, "VID", "mp4")
-            videoRecording = capture.output
-                .prepareRecording(this, FileOutputOptions.Builder(file).build())
+            // Chosen folder if set (write to its file descriptor), else internal storage.
+            val custom = StorageLocation.open(this, "VID", "mp4")
+            val pending = if (custom != null) {
+                outputPfd = custom.pfd
+                capture.output.prepareRecording(
+                    this, FileDescriptorOutputOptions.Builder(custom.pfd).build(),
+                )
+            } else {
+                capture.output.prepareRecording(
+                    this, FileOutputOptions.Builder(RecordingStore.newFile(this, "VID", "mp4")).build(),
+                )
+            }
+            videoRecording = pending
                 .withAudioEnabled()
                 .start(ContextCompat.getMainExecutor(this)) { }
         }
     }
 
     private fun startAudio() {
-        val file = RecordingStore.newFile(this, "AUD", "m4a")
+        val custom = StorageLocation.open(this, "AUD", "m4a")
         @Suppress("DEPRECATION") // context ctor needs API 31; minSdk is 26
         audioRecorder = MediaRecorder().apply {
             setAudioSource(MediaRecorder.AudioSource.MIC)
             setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
             setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            setOutputFile(file.absolutePath)
+            if (custom != null) {
+                outputPfd = custom.pfd
+                setOutputFile(custom.pfd.fileDescriptor)
+            } else {
+                setOutputFile(RecordingStore.newFile(this@RecorderService, "AUD", "m4a").absolutePath)
+            }
             prepare()
             start()
         }
@@ -126,6 +145,9 @@ class RecorderService : LifecycleService() {
             release()
         }
         audioRecorder = null
+        // Close after the recorders finalise, so the chosen-folder file flushes fully.
+        runCatching { outputPfd?.close() }
+        outputPfd = null
         CameraEngine.release()
         wakeLock?.release()
         amplitude.value = 0f

@@ -1,19 +1,37 @@
 # EyeofAngra
 
-A minimal, open-source Android app for emergency evidence capture — for people
-whose safety, life, or freedom may be at risk. Everything stays on your device.
+**Emergency evidence capture for Android — private by design.** EyeofAngra records
+video, audio, and photos the instant your safety, liberty, or wellbeing is at
+risk, and keeps every file on your own device. No account, no cloud, no
+analytics, and no network permission at all.
+
+Built for the moments that matter: one-tap capture, recording that survives a
+locked screen, an optional stealth auto-lock, and the freedom to store evidence
+wherever you choose — on the phone or in a folder you pick.
 
 iOS sibling: [EyeofAngra for iPhone](https://github.com/HARSHBHINDER/EyeofAngra-iOS).
 
-<p align="center">
-  <a href="https://github.com/HARSHBHINDER/EyeofAngra/raw/main/APKs/EyeofAngra-v1.0.apk">
-    <img src="https://img.shields.io/badge/⬇%20Download-v1.0-2EA44F?style=for-the-badge&logo=android&logoColor=white" alt="Download version 1.0">
-  </a>
-  &nbsp;
-  <a href="https://github.com/HARSHBHINDER/EyeofAngra/raw/main/APKs/EyeofAngra-v2.0.apk">
-    <img src="https://img.shields.io/badge/⬇%20Download-v2.0-2EA44F?style=for-the-badge&logo=android&logoColor=white" alt="Download version 2.0">
-  </a>
-</p>
+## Downloads
+
+Every release is listed below with its changes and a direct download — from both
+this repository's [`APKs/`](APKs) folder and the matching GitHub Release. The
+table regenerates automatically on each push from
+[`versions.json`](versions.json).
+
+<!-- VERSIONS:TABLE:START -->
+<table>
+<thead><tr><th>#</th><th>Version</th><th>Changes &amp; features</th><th>Download</th></tr></thead>
+<tbody>
+<tr><td align="center">1</td><td align="center"><strong>v2.0</strong><br><sub>2026-08-05</sub></td><td><ul><li>Auto-lock: the screen turns off the instant recording starts, and capture continues in the background (opt-in, device-admin).</li><li>Choose where captures are saved: a toggle plus a folder picker (Storage Access Framework), with automatic fallback to on-device storage if the folder is unavailable.</li><li>Premium visual pass: gold hairline cards, letter-spaced section headers, and a focal record button.</li><li>Video, audio, and photo all honour the chosen save location.</li></ul></td><td align="center"><a href="https://github.com/HARSHBHINDER/EyeofAngra/raw/main/APKs/EyeofAngra-v2.0.apk"><img src="https://img.shields.io/badge/APK%20in--repo-2EA44F?style=flat-square&logo=android&logoColor=white" alt="Download EyeofAngra-v2.0.apk from repo"></a><br><a href="https://github.com/HARSHBHINDER/EyeofAngra/releases/download/latest/app-debug.apk"><img src="https://img.shields.io/badge/APK%20release-24292E?style=flat-square&logo=github&logoColor=white" alt="Download from GitHub release"></a></td></tr>
+<tr><td align="center">2</td><td align="center"><strong>v1.0</strong><br><sub>2026-07-19</sub></td><td><ul><li>First release: Video, Audio, Photo, Vault, and Settings.</li><li>Lock-screen recording via a foreground service with an ongoing notification.</li><li>Everything stored on-device; no network permission, accounts, or analytics.</li></ul></td><td align="center"><a href="https://github.com/HARSHBHINDER/EyeofAngra/raw/main/APKs/EyeofAngra-v1.0.apk"><img src="https://img.shields.io/badge/APK%20in--repo-2EA44F?style=flat-square&logo=android&logoColor=white" alt="Download EyeofAngra-v1.0.apk from repo"></a></td></tr>
+</tbody>
+</table>
+<!-- VERSIONS:TABLE:END -->
+
+> **Installing:** on an Android phone, tap a **Download** button above, open the
+> `.apk`, and allow "install from unknown sources" when prompted. Updating from
+> an older EyeofAngra signed with a different key? Uninstall it first. First
+> launch asks for camera, microphone, and notification access. Free, no expiry.
 
 ## Features
 
@@ -34,6 +52,16 @@ Five destinations: Video, Audio, Photo, Vault, Settings.
 - **Settings** — capture, recording behaviour, appearance, storage,
   permissions, and the full Safety & Legal text.
 
+Two capabilities added in 2.0:
+
+- **Auto-lock on record** *(opt-in)* — turn it on and the screen locks the
+  instant a recording begins, so the phone looks idle while capture continues in
+  the background. Uses Android's device-admin force-lock; toggle it off any time.
+- **Choose your save location** — a toggle plus a folder picker. Off, captures
+  stay in the app's private storage ("on board"); on, they go to any folder you
+  pick via the Storage Access Framework. If that folder is ever unavailable,
+  capture falls back on board so a recording is never lost.
+
 Only one recording runs at a time: video and audio both need the microphone,
 and the app says so rather than letting the second attempt fail silently.
 
@@ -42,16 +70,18 @@ No cloud, no analytics, no accounts, no network permission at all.
 Architecture, phased plan, permission matrix, storage model, and the recording
 state machine are documented in [DOCS/PLAN.md](DOCS/PLAN.md).
 
-## Install (free, no expiry)
+## Releases & automation
 
-1. On an Android phone, open this repo's
-   [latest release](../../releases/tag/latest).
-2. Download `app-debug.apk`.
-3. Open it; allow "install from unknown sources" when Android asks.
-4. First launch asks for camera, microphone, and notification permission.
+Grab any build from the [Downloads](#downloads) table above. Behind it:
 
-Every push to `main` rebuilds the APK automatically
-([`.github/workflows/build-apk.yml`](.github/workflows/build-apk.yml)).
+- Every push to `main` rebuilds the debug APK and publishes it to the rolling
+  [`latest` release](../../releases/tag/latest)
+  ([`build-apk.yml`](.github/workflows/build-apk.yml)).
+- To add a version to the table, append an entry to
+  [`versions.json`](versions.json) and drop its APK in [`APKs/`](APKs). On push,
+  [`readme-versions.yml`](.github/workflows/readme-versions.yml) regenerates the
+  table automatically — serial number, version, changelog, and download buttons
+  for both the in-repo file and the GitHub Release.
 
 ## Building locally
 

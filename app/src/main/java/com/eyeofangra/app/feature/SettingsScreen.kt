@@ -3,6 +3,8 @@ package com.eyeofangra.app.feature
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings as AndroidSettings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,7 +31,10 @@ import androidx.compose.ui.platform.LocalContext
 import com.eyeofangra.app.RecordingStore
 import com.eyeofangra.app.ScreenLock
 import com.eyeofangra.app.Settings
+import com.eyeofangra.app.SettingsStore
+import com.eyeofangra.app.StorageLocation
 import com.eyeofangra.app.ui.components.BodyText
+import kotlinx.coroutines.launch
 import com.eyeofangra.app.ui.components.InfoRow
 import com.eyeofangra.app.ui.components.SectionHeader
 import com.eyeofangra.app.ui.components.SettingRow
@@ -42,6 +48,21 @@ fun SettingsScreen(
     onVolumeShutter: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val pickFolder = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        if (uri != null) {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+            )
+            scope.launch {
+                SettingsStore.setStorageUri(context, uri.toString())
+                SettingsStore.setCustomStorage(context, true)
+            }
+        }
+    }
 
     Column(
         Modifier
@@ -92,11 +113,25 @@ fun SettingsScreen(
         )
 
         SectionHeader("Storage")
+        SettingRow(
+            "Save to a chosen folder",
+            "Off: kept on board, in this app's private storage. On: saved to a folder you pick.",
+            settings.customStorage,
+            onCheckedChange = { on ->
+                scope.launch { SettingsStore.setCustomStorage(context, on) }
+                // Turning it on with no folder yet: ask for one immediately.
+                if (on && settings.storageUri == null) pickFolder.launch(null)
+            },
+        )
+        if (settings.customStorage) {
+            LinkRow("Folder — ${StorageLocation.label(context)}") { pickFolder.launch(null) }
+        }
         InfoRow("Captured media", RecordingStore.formatBytes(RecordingStore.usedBytes(context)))
         InfoRow("Free space", RecordingStore.formatBytes(RecordingStore.freeBytes(context)))
         BodyText(
-            "Recordings are kept in this app's private folder. They are not uploaded, " +
-                "synchronised, or shared, and Android removes them if you uninstall the app.",
+            "With the toggle off, recordings stay in this app's private storage and Android " +
+                "removes them if you uninstall. With a folder chosen, new captures are written " +
+                "there instead; if that folder is ever unavailable, capture falls back on board.",
             Modifier.padding(vertical = Angra.s2),
         )
 

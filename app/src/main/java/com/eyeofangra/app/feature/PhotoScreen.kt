@@ -32,6 +32,7 @@ import androidx.core.content.ContextCompat
 import com.eyeofangra.app.CameraEngine
 import com.eyeofangra.app.CameraPreview
 import com.eyeofangra.app.RecordingStore
+import com.eyeofangra.app.StorageLocation
 import com.eyeofangra.app.ui.components.CaptureButton
 import com.eyeofangra.app.ui.theme.Angra
 import kotlinx.coroutines.delay
@@ -55,15 +56,24 @@ fun PhotoScreen(
     fun capture() {
         if (cameraBusy) return
         state = SaveState.Saving
-        val file = RecordingStore.newFile(context, "IMG", "jpg")
+        // Chosen folder if set (write to its stream), else internal storage.
+        val custom = StorageLocation.open(context, "IMG", "jpg")
+        val stream = custom?.let { android.os.ParcelFileDescriptor.AutoCloseOutputStream(it.pfd) }
+        val options = if (stream != null) {
+            ImageCapture.OutputFileOptions.Builder(stream).build()
+        } else {
+            ImageCapture.OutputFileOptions.Builder(RecordingStore.newFile(context, "IMG", "jpg")).build()
+        }
         CameraEngine.imageCapture.takePicture(
-            ImageCapture.OutputFileOptions.Builder(file).build(),
+            options,
             ContextCompat.getMainExecutor(context),
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(results: ImageCapture.OutputFileResults) {
+                    runCatching { stream?.close() }
                     state = SaveState.Saved
                 }
                 override fun onError(exception: ImageCaptureException) {
+                    runCatching { stream?.close() }
                     state = SaveState.Failed
                 }
             },

@@ -14,6 +14,12 @@ object RecordingStore {
 
     fun dir(context: Context): File = context.getExternalFilesDir(null)!!
 
+    /// Collision-free timestamped name, shared by internal files and custom-folder documents.
+    fun stampName(prefix: String, ext: String): String {
+        val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        return "${prefix}_$stamp.$ext"
+    }
+
     fun newFile(context: Context, prefix: String, ext: String): File {
         val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         var file = File(dir(context), "${prefix}_$stamp.$ext")

@@ -1,0 +1,29 @@
+{
+  "repo": "HARSHBHINDER/EyeofAngra",
+  "release_asset": "app-debug.apk",
+  "versions": [
+    {
+      "version": "2.0",
+      "date": "2026-08-05",
+      "apk": "EyeofAngra-v2.0.apk",
+      "release_tag": "latest",
+      "changes": [
+        "Auto-lock: the screen turns off the instant recording starts, and capture continues in the background (opt-in, device-admin).",
+        "Choose where captures are saved: a toggle plus a folder picker (Storage Access Framework), with automatic fallback to on-device storage if the folder is unavailable.",
+        "Premium visual pass: gold hairline cards, letter-spaced section headers, and a focal record button.",
+        "Video, audio, and photo all honour the chosen save location."
+      ]
+    },
+    {
+      "version": "1.0",
+      "date": "2026-07-19",
+      "apk": "EyeofAngra-v1.0.apk",
+      "release_tag": null,
+      "changes": [
+        "First release: Video, Audio, Photo, Vault, and Settings.",
+        "Lock-screen recording via a foreground service with an ongoing notification.",
+        "Everything stored on-device; no network permission, accounts, or analytics."
+      ]
+    }
+  ]
+}
