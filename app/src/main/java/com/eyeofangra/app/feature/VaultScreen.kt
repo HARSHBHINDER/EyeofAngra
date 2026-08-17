@@ -27,9 +27,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+import com.eyeofangra.app.MediaEntry
+import com.eyeofangra.app.MediaLibrary
 import com.eyeofangra.app.RecordingStore
 import com.eyeofangra.app.ui.theme.Angra
-import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -45,15 +46,15 @@ private enum class Filter(val label: String, val prefixes: List<String>) {
 fun VaultScreen(refreshKey: Any?) {
     val context = LocalContext.current
     var filter by remember { mutableStateOf(Filter.All) }
-    var pendingDelete by remember { mutableStateOf<File?>(null) }
+    var pendingDelete by remember { mutableStateOf<MediaEntry?>(null) }
     // Recomputed whenever a recording finishes or an item is deleted.
     var version by remember { mutableStateOf(0) }
 
+    // Both locations: this app's storage and the folder chosen in Settings.
     val files = remember(filter, version, refreshKey) {
-        filter.prefixes.flatMap { RecordingStore.list(context, it) }
-            .sortedByDescending { it.name.substringAfter('_') }
+        MediaLibrary.list(context, filter.prefixes)
     }
-    val used = remember(version, refreshKey) { RecordingStore.usedBytes(context) }
+    val used = remember(version, refreshKey) { MediaLibrary.usedBytes(context) }
     val free = remember(version, refreshKey) { RecordingStore.freeBytes(context) }
 
     Column(Modifier.fillMaxSize().background(Angra.Background)) {
@@ -101,11 +102,11 @@ fun VaultScreen(refreshKey: Any?) {
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = Angra.s4),
                 verticalArrangement = Arrangement.spacedBy(Angra.s2),
             ) {
-                items(files, key = { it.absolutePath }) { file ->
+                items(files, key = { it.id }) { entry ->
                     MediaRow(
-                        file = file,
-                        onOpen = { RecordingStore.open(context, file) },
-                        onDelete = { pendingDelete = file },
+                        entry = entry,
+                        onOpen = { MediaLibrary.open(context, entry) },
+                        onDelete = { pendingDelete = entry },
                     )
                 }
             }
@@ -113,14 +114,14 @@ fun VaultScreen(refreshKey: Any?) {
     }
 
     // Deleting evidence is irreversible, so it always asks first.
-    pendingDelete?.let { file ->
+    pendingDelete?.let { entry ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
             title = { Text("Delete this recording?") },
-            text = { Text("${file.name} will be permanently removed from this device. This cannot be undone.") },
+            text = { Text("${entry.name} will be permanently removed from this device. This cannot be undone.") },
             confirmButton = {
                 TextButton(onClick = {
-                    file.delete()
+                    MediaLibrary.delete(context, entry)
                     pendingDelete = null
                     version++
                 }) { Text("Delete", color = Angra.Recording) }
@@ -134,20 +135,22 @@ fun VaultScreen(refreshKey: Any?) {
 }
 
 @Composable
-private fun MediaRow(file: File, onOpen: () -> Unit, onDelete: () -> Unit) {
-    val kind = when (file.name.take(3)) {
+private fun MediaRow(entry: MediaEntry, onOpen: () -> Unit, onDelete: () -> Unit) {
+    val kind = when (entry.name.take(3)) {
         "VID" -> "Video"
         "AUD" -> "Audio"
         else -> "Photo"
     }
-    val captured = remember(file) {
+    val captured = remember(entry.id) {
         runCatching {
-            val raw = file.name.substringAfter('_').substringBeforeLast('.').take(15)
+            val raw = entry.name.substringAfter('_').substringBeforeLast('.').take(15)
             SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).parse(raw)
                 ?.let { SimpleDateFormat("d MMM yyyy · HH:mm", Locale.getDefault()).format(it) }
         }.getOrNull() ?: SimpleDateFormat("d MMM yyyy · HH:mm", Locale.getDefault())
-            .format(Date(file.lastModified()))
+            .format(Date(entry.modified))
     }
+    // Says which storage the file is in, so "chosen folder" never means "lost".
+    val where = if (entry.inChosenFolder) "chosen folder" else "on board"
 
     Row(
         Modifier
@@ -160,8 +163,8 @@ private fun MediaRow(file: File, onOpen: () -> Unit, onDelete: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text("$kind · ${RecordingStore.formatBytes(file.length())}", color = Angra.TextPrimary, fontSize = Angra.bodySize)
-            Text(captured, color = Angra.TextSecondary, fontSize = Angra.labelSize)
+            Text("$kind · ${RecordingStore.formatBytes(entry.size)}", color = Angra.TextPrimary, fontSize = Angra.bodySize)
+            Text("$captured · $where", color = Angra.TextSecondary, fontSize = Angra.labelSize)
         }
         TextButton(onClick = onDelete) { Text("Delete", color = Angra.TextSecondary) }
     }

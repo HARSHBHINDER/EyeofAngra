@@ -11,7 +11,8 @@
         "Auto-lock: the screen turns off the instant recording starts, and capture continues in the background (opt-in, device-admin).",
         "Choose where captures are saved: a toggle plus a folder picker (Storage Access Framework), with automatic fallback to on-device storage if the folder is unavailable.",
         "Premium visual pass: gold hairline cards, letter-spaced section headers, and a focal record button.",
-        "Video, audio, and photo all honour the chosen save location."
+        "Video, audio, and photo all honour the chosen save location.",
+        "The Vault lists captures from both locations, tagged 'on board' or 'chosen folder', with combined storage totals; open and delete work for either."
       ]
     },
     {

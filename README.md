@@ -22,7 +22,7 @@ table regenerates automatically on each push from
 <table>
 <thead><tr><th>#</th><th>Version</th><th>Changes &amp; features</th><th>Download</th></tr></thead>
 <tbody>
-<tr><td align="center">1</td><td align="center"><strong>v2.0</strong><br><sub>2026-08-05</sub></td><td><ul><li>Auto-lock: the screen turns off the instant recording starts, and capture continues in the background (opt-in, device-admin).</li><li>Choose where captures are saved: a toggle plus a folder picker (Storage Access Framework), with automatic fallback to on-device storage if the folder is unavailable.</li><li>Premium visual pass: gold hairline cards, letter-spaced section headers, and a focal record button.</li><li>Video, audio, and photo all honour the chosen save location.</li></ul></td><td align="center"><a href="https://github.com/HARSHBHINDER/EyeofAngra/raw/main/APKs/EyeofAngra-v2.0.apk"><img src="https://img.shields.io/badge/APK%20in--repo-2EA44F?style=flat-square&logo=android&logoColor=white" alt="Download EyeofAngra-v2.0.apk from repo"></a><br><a href="https://github.com/HARSHBHINDER/EyeofAngra/releases/download/latest/app-debug.apk"><img src="https://img.shields.io/badge/APK%20release-24292E?style=flat-square&logo=github&logoColor=white" alt="Download from GitHub release"></a></td></tr>
+<tr><td align="center">1</td><td align="center"><strong>v2.0</strong><br><sub>2026-08-05</sub></td><td><ul><li>Auto-lock: the screen turns off the instant recording starts, and capture continues in the background (opt-in, device-admin).</li><li>Choose where captures are saved: a toggle plus a folder picker (Storage Access Framework), with automatic fallback to on-device storage if the folder is unavailable.</li><li>Premium visual pass: gold hairline cards, letter-spaced section headers, and a focal record button.</li><li>Video, audio, and photo all honour the chosen save location.</li><li>The Vault lists captures from both locations, tagged 'on board' or 'chosen folder', with combined storage totals; open and delete work for either.</li></ul></td><td align="center"><a href="https://github.com/HARSHBHINDER/EyeofAngra/raw/main/APKs/EyeofAngra-v2.0.apk"><img src="https://img.shields.io/badge/APK%20in--repo-2EA44F?style=flat-square&logo=android&logoColor=white" alt="Download EyeofAngra-v2.0.apk from repo"></a><br><a href="https://github.com/HARSHBHINDER/EyeofAngra/releases/download/latest/app-debug.apk"><img src="https://img.shields.io/badge/APK%20release-24292E?style=flat-square&logo=github&logoColor=white" alt="Download from GitHub release"></a></td></tr>
 <tr><td align="center">2</td><td align="center"><strong>v1.0</strong><br><sub>2026-07-19</sub></td><td><ul><li>First release: Video, Audio, Photo, Vault, and Settings.</li><li>Lock-screen recording via a foreground service with an ongoing notification.</li><li>Everything stored on-device; no network permission, accounts, or analytics.</li></ul></td><td align="center"><a href="https://github.com/HARSHBHINDER/EyeofAngra/raw/main/APKs/EyeofAngra-v1.0.apk"><img src="https://img.shields.io/badge/APK%20in--repo-2EA44F?style=flat-square&logo=android&logoColor=white" alt="Download EyeofAngra-v1.0.apk from repo"></a></td></tr>
 </tbody>
 </table>
@@ -47,7 +47,8 @@ Five destinations: Video, Audio, Photo, Vault, Settings.
 - **Photo** — full-bleed preview; **tap anywhere or press either volume key**
   to capture (`IMG_YYYYMMDD_HHMMSS.jpg`), built for unsteady hands. Status
   reports Saving, Saved, or Failed — never Saved before the file is finalised.
-- **Vault** — everything captured, filterable by type, with a storage summary.
+- **Vault** — everything captured, from **both** storage locations, filterable by
+  type and tagged "on board" or "chosen folder", with a combined storage summary.
   Tap to play or view; delete asks for confirmation first.
 - **Settings** — capture, recording behaviour, appearance, storage,
   permissions, and the full Safety & Legal text.
@@ -107,5 +108,7 @@ tool.
 
 Laws on recording conversations and filming people vary by country and state
 (one-party vs. all-party consent, etc.). You are solely responsible for using
-this app lawfully. Recordings stay in the app's private folder until you
-delete them. Provided as-is, without warranty — see [LICENSE](LICENSE).
+this app lawfully. Recordings stay in the app's private folder until you delete
+them, unless you turn on **Save to a chosen folder** — captures then go to the
+folder you pick, where Android may index them into your gallery and other apps
+can read them. Provided as-is, without warranty — see [LICENSE](LICENSE).
