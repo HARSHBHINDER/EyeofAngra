@@ -227,7 +227,7 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- ------------------------ Sidebar ---------------------- -->
+                <!-- ======================== Sidebar ====================== -->
                 <Border Grid.Column="0" Background="{StaticResource Surface}"
                         BorderBrush="{StaticResource Divider}" BorderThickness="0,1,1,0">
                     <DockPanel Margin="16,16,16,14">
@@ -350,7 +350,7 @@
                     </DockPanel>
                 </Border>
 
-                <!-- ------------------------- Main ------------------------ -->
+                <!-- ========================= Main ======================== -->
                 <Grid Grid.Column="1">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
