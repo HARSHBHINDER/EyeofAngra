@@ -40,8 +40,7 @@ jobs:
           $exe = "AngraiPhoneTransfer\publish\AngraiPhoneTransfer.exe"
           $run = Start-Process -FilePath $exe -ArgumentList '--selftest' -PassThru -Wait
           $log = "AngraiPhoneTransfer\publish\selftest.log"
-          if (Test-Path $log) { Get-Content $log } else { Write-Host "no self-test report was written" }
-          Remove-Item $log -ErrorAction SilentlyContinue
+          if (Test-Path $log) { Move-Item $log selftest-report.txt -Force } else { Write-Host "no self-test report was written" }
           if ($run.ExitCode -ne 0) { throw "Self-test failed with exit code $($run.ExitCode)" }
 
       - name: Install Inno Setup
@@ -56,7 +55,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
 
       - name: Show what was produced
-        run: Get-ChildItem AngraiPhoneTransfer/dist | Format-Table Name, Length
+        run: |
+          Get-ChildItem AngraiPhoneTransfer/dist | Format-Table Name, Length
+          if (Test-Path selftest-report.txt) { Get-Content selftest-report.txt }
 
       - name: Upload installer
         uses: actions/upload-artifact@v4

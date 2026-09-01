@@ -104,6 +104,14 @@ shows a permanent notification plus its own camera/microphone indicators —
 this app does not and will not hide them. It is not a covert surveillance
 tool.
 
+## Also in this repository
+
+**[AngraiPhoneTransfer](AngraiPhoneTransfer)** — a Windows desktop app that
+copies or moves photos, videos and files off an **iPhone** over the USB cable,
+as plain full-resolution files rather than an iTunes backup. Same design
+language, same no-cloud stance; download the `.exe` installer from the
+[latest Windows build](../../releases/tag/windows-latest).
+
 ## Legal disclaimer
 
 Laws on recording conversations and filming people vary by country and state
