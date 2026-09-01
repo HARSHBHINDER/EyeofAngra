@@ -1,0 +1,73 @@
+# Builds AngraiPhoneTransfer and packages it as a Windows .exe installer.
+# The app is WPF, so it can only be compiled on Windows — this workflow is the
+# build machine.
+name: Build Windows app
+
+on:
+  push:
+    branches: [main, claude/angra-iphone-windows-installer-7rpokm]
+    paths:
+      - "AngraiPhoneTransfer/**"
+      - ".github/workflows/build-windows-app.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore AngraiPhoneTransfer/src/AngraiPhoneTransfer/AngraiPhoneTransfer.csproj
+
+      - name: Publish self-contained x64
+        run: >
+          dotnet publish AngraiPhoneTransfer/src/AngraiPhoneTransfer/AngraiPhoneTransfer.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:DebugType=none -p:DebugSymbols=false
+          -o AngraiPhoneTransfer/publish
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer
+        working-directory: AngraiPhoneTransfer/installer
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { $iscc = "$env:ProgramFiles\Inno Setup 6\ISCC.exe" }
+          & $iscc AngraiPhoneTransfer.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
+
+      - name: Show what was produced
+        run: Get-ChildItem AngraiPhoneTransfer/dist | Format-Table Name, Length
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: AngraiPhoneTransfer-Setup
+          path: AngraiPhoneTransfer/dist/*.exe
+          if-no-files-found: error
+
+      - name: Publish to the rolling release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: windows-latest
+          name: AngraiPhoneTransfer (latest Windows build)
+          body: |
+            Auto-built from `main` at ${{ github.sha }}.
+
+            Download `AngraiPhoneTransfer-Setup-1.0.0-x64.exe` and run it on a
+            Windows 10/11 PC. It installs for the current user, so there is no
+            administrator prompt. Nothing else is needed — no iTunes, no drivers,
+            no internet connection.
+          prerelease: true
+          files: AngraiPhoneTransfer/dist/*.exe

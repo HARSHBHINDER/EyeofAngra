@@ -7,3 +7,10 @@ local.properties
 # Ship the built APKs for direct download (overrides *.apk above)
 !APKs/
 !APKs/*.apk
+
+# AngraiPhoneTransfer (Windows app)
+AngraiPhoneTransfer/**/bin/
+AngraiPhoneTransfer/**/obj/
+AngraiPhoneTransfer/publish/
+AngraiPhoneTransfer/dist/
+*.user
