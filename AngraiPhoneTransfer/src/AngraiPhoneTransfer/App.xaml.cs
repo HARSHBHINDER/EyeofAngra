@@ -30,6 +30,14 @@ public partial class App : Application
 
         Log.Info("AngraiPhoneTransfer starting.");
 
+        // CI runs the published build with --selftest to prove the window and
+        // every binding in it still come up.
+        if (e.Args.Any(a => string.Equals(a, "--selftest", StringComparison.OrdinalIgnoreCase)))
+        {
+            SelfTest.Run(this);
+            return;
+        }
+
         model = new MainViewModel();
         var window = new MainWindow { DataContext = model };
         MainWindow = window;

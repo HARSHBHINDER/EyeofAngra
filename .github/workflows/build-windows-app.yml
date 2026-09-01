@@ -35,6 +35,15 @@ jobs:
           -p:DebugType=none -p:DebugSymbols=false
           -o AngraiPhoneTransfer/publish
 
+      - name: Smoke-test the published app
+        run: |
+          $exe = "AngraiPhoneTransfer\publish\AngraiPhoneTransfer.exe"
+          $run = Start-Process -FilePath $exe -ArgumentList '--selftest' -PassThru -Wait
+          $log = "AngraiPhoneTransfer\publish\selftest.log"
+          if (Test-Path $log) { Get-Content $log } else { Write-Host "no self-test report was written" }
+          Remove-Item $log -ErrorAction SilentlyContinue
+          if ($run.ExitCode -ne 0) { throw "Self-test failed with exit code $($run.ExitCode)" }
+
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
 
