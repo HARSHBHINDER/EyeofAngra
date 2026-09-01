@@ -35,7 +35,7 @@ public sealed class DeviceService : IDisposable
         var found = new List<PhoneDevice>();
         try
         {
-            foreach (var d in MediaDeviceManager.Instance.GetDevices())
+            foreach (var d in Enumerate())
             {
                 try
                 {
@@ -67,7 +67,7 @@ public sealed class DeviceService : IDisposable
     {
         DisconnectCore();
 
-        var target = MediaDeviceManager.Instance.GetDevices()
+        var target = Enumerate()
             .FirstOrDefault(d => string.Equals(d.DeviceId, deviceId, StringComparison.OrdinalIgnoreCase));
         if (target is null)
         {
@@ -251,6 +251,11 @@ public sealed class DeviceService : IDisposable
             return null; // thumbnails are a nicety, never an error worth surfacing
         }
     });
+
+    /// The manager is a shared singleton; it hands back live COM-backed objects,
+    /// so they are never disposed here.
+    private static IEnumerable<MediaDevice> Enumerate()
+        => MediaDeviceManager.Instance?.GetDevices() ?? Enumerable.Empty<MediaDevice>();
 
     internal static MediaNode Snapshot(MediaFileSystemInfo info)
     {

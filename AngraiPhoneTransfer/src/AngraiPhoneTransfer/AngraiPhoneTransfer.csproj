@@ -24,6 +24,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The WPF SDK's implicit usings leave System.IO out, and this app is all
+         files and streams. -->
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- MediaDevices (MIT) wraps the Windows Portable Devices COM API, which is how
          Windows itself talks to an iPhone over the cable. See DOCS/RESEARCH.md. -->
     <PackageReference Include="MediaDevices" Version="2.0.0" />
