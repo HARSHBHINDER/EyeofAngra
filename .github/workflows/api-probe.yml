@@ -1,0 +1,28 @@
+# Temporary helper: dumps the public API of the MTP library used by
+# AngraiPhoneTransfer so the app can be written against exact signatures.
+name: API probe
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [claude/angra-iphone-windows-installer-7rpokm]
+    paths:
+      - "AngraiPhoneTransfer/tools/ApiProbe/**"
+      - ".github/workflows/api-probe.yml"
+
+jobs:
+  probe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Resolve package version
+        working-directory: AngraiPhoneTransfer/tools/ApiProbe
+        run: |
+          dotnet restore
+          dotnet list package --include-transitive
+      - name: Dump API surface
+        working-directory: AngraiPhoneTransfer/tools/ApiProbe
+        run: dotnet run -c Release
