@@ -5,7 +5,14 @@ name: Build Windows app
 
 on:
   push:
-    branches: [main, claude/angra-iphone-windows-installer-7rpokm]
+    branches: [main]
+    paths:
+      - "AngraiPhoneTransfer/**"
+      - ".github/workflows/build-windows-app.yml"
+  # Every pull request gets the installer built and smoke-tested, so the
+  # branch name is not baked into the trigger.
+  pull_request:
+    branches: [main]
     paths:
       - "AngraiPhoneTransfer/**"
       - ".github/workflows/build-windows-app.yml"
