@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>AngraiPhoneTransfer</AssemblyName>
+    <RootNamespace>AngraiPhoneTransfer</RootNamespace>
+    <ApplicationIcon>Assets\AngraiPhoneTransfer.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Product>AngraiPhoneTransfer</Product>
+    <Company>Angra</Company>
+    <Description>Wired iPhone photo, video and file transfer for Windows. No cloud, no backup files.</Description>
+    <Copyright>Copyright (c) Angra</Copyright>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The WPF SDK's implicit usings leave System.IO out, and this app is all
+         files and streams. -->
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- MediaDevices (MIT) wraps the Windows Portable Devices COM API, which is how
+         Windows itself talks to an iPhone over the cable. See DOCS/RESEARCH.md. -->
+    <PackageReference Include="MediaDevices" Version="2.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\AngraiPhoneTransfer.ico" />
+  </ItemGroup>
+
+</Project>

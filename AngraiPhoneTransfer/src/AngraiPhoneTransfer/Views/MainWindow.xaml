@@ -1,0 +1,686 @@
+<Window x:Class="AngraiPhoneTransfer.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="AngraiPhoneTransfer"
+        Height="800" Width="1240" MinHeight="640" MinWidth="1000"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        Background="{StaticResource Background}"
+        FontFamily="{StaticResource UiFont}"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="44" ResizeBorderThickness="6"
+                            GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
+
+    <Window.Resources>
+
+        <ItemsPanelTemplate x:Key="TilePanel">
+            <WrapPanel Orientation="Horizontal"/>
+        </ItemsPanelTemplate>
+
+        <ItemsPanelTemplate x:Key="RowPanel">
+            <StackPanel Orientation="Vertical"/>
+        </ItemsPanelTemplate>
+
+        <!-- A tile doubles as its own selection control: clicking anywhere on it
+             picks the item up, and folders carry an extra open affordance. -->
+        <Style x:Key="TileToggle" TargetType="ToggleButton">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Chrome" CornerRadius="13"
+                                Background="{StaticResource SurfaceAlt}"
+                                BorderBrush="{StaticResource Divider}" BorderThickness="1">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource GoldMuted}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource Gold}"/>
+                                <Setter TargetName="Chrome" Property="Background" Value="#2A2317"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="RowToggle" TargetType="ToggleButton">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Chrome" CornerRadius="10" Background="Transparent" Padding="10,7">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{StaticResource SurfaceAlt}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{StaticResource GoldSoft}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Grid tile -->
+        <DataTemplate x:Key="TileTemplate">
+            <Grid Width="176" Height="200" Margin="0,0,12,12">
+                <ToggleButton Style="{StaticResource TileToggle}" IsChecked="{Binding IsChecked, Mode=TwoWay}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="132"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" CornerRadius="12,12,0,0" Background="#FF101116" ClipToBounds="True">
+                            <Grid>
+                                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"/>
+                                <Path Data="{Binding Kind, Converter={StaticResource KindToIcon}}"
+                                      Style="{StaticResource IconPath}" Width="30" Height="30"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      Visibility="{Binding Thumbnail, Converter={StaticResource PresenceToVisibility}, ConverterParameter=invert}"/>
+                            </Grid>
+                        </Border>
+
+                        <StackPanel Grid.Row="1" Margin="12,9,12,0" VerticalAlignment="Top">
+                            <TextBlock Text="{Binding Name}" FontSize="12.5" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{Binding DetailText}" Style="{StaticResource Muted}" FontSize="11"
+                                       Margin="0,3,0,0" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </Grid>
+                </ToggleButton>
+
+                <Border Width="24" Height="24" CornerRadius="999" Background="{StaticResource Gold}"
+                        HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10"
+                        Visibility="{Binding IsChecked, Converter={StaticResource BoolToVisibility}}">
+                    <Path Data="{StaticResource IconCheck}" Stretch="Uniform" Width="12" Height="12"
+                          Stroke="#FF14130F" StrokeThickness="2.4" StrokeLineJoin="Round"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                </Border>
+
+                <Button Style="{StaticResource IconButton}" Width="30" Height="30"
+                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8"
+                        ToolTip="Open this folder"
+                        Visibility="{Binding IsFolder, Converter={StaticResource BoolToVisibility}}"
+                        Command="{Binding DataContext.OpenCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        CommandParameter="{Binding}">
+                    <Path Data="{StaticResource IconChevron}" Style="{StaticResource IconPathGold}" Width="14" Height="14"/>
+                </Button>
+            </Grid>
+        </DataTemplate>
+
+        <!-- List row -->
+        <DataTemplate x:Key="RowTemplate">
+            <ToggleButton Style="{StaticResource RowToggle}" IsChecked="{Binding IsChecked, Mode=TwoWay}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="30"/>
+                        <ColumnDefinition Width="46"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="96"/>
+                        <ColumnDefinition Width="120"/>
+                        <ColumnDefinition Width="36"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Width="18" Height="18" CornerRadius="5" HorizontalAlignment="Left"
+                            Background="{StaticResource Gold}"
+                            Visibility="{Binding IsChecked, Converter={StaticResource BoolToVisibility}}">
+                        <Path Data="{StaticResource IconCheck}" Stretch="Uniform" Width="10" Height="10"
+                              Stroke="#FF14130F" StrokeThickness="2.4" StrokeLineJoin="Round"/>
+                    </Border>
+                    <Border Grid.Column="0" Width="18" Height="18" CornerRadius="5" HorizontalAlignment="Left"
+                            BorderBrush="{StaticResource TextDisabled}" BorderThickness="1.4"
+                            Visibility="{Binding IsChecked, Converter={StaticResource NotBoolToVisibility}}"/>
+
+                    <Border Grid.Column="1" Width="34" Height="26" CornerRadius="6" Background="#FF101116"
+                            HorizontalAlignment="Left" ClipToBounds="True">
+                        <Grid>
+                            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"/>
+                            <Path Data="{Binding Kind, Converter={StaticResource KindToIcon}}"
+                                  Style="{StaticResource IconPath}" Width="15" Height="15"
+                                  Visibility="{Binding Thumbnail, Converter={StaticResource PresenceToVisibility}, ConverterParameter=invert}"/>
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Grid.Column="2" Text="{Binding Name}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" Margin="0,0,12,0"/>
+                    <TextBlock Grid.Column="3" Text="{Binding SizeText}" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="4" Text="{Binding DateText}" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+
+                    <Button Grid.Column="5" Style="{StaticResource IconButton}" Width="28" Height="28"
+                            ToolTip="Open this folder"
+                            Visibility="{Binding IsFolder, Converter={StaticResource BoolToVisibility}}"
+                            Command="{Binding DataContext.OpenCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            CommandParameter="{Binding}">
+                        <Path Data="{StaticResource IconChevron}" Style="{StaticResource IconPathGold}" Width="13" Height="13"/>
+                    </Button>
+                </Grid>
+            </ToggleButton>
+        </DataTemplate>
+
+    </Window.Resources>
+
+    <Border x:Name="RootBorder" Background="{StaticResource Background}">
+        <Border.Style>
+            <Style TargetType="Border">
+                <Setter Property="Padding" Value="0"/>
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}" Value="Maximized">
+                        <Setter Property="Padding" Value="7"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Border.Style>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="44"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- ======================= Title bar ======================= -->
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="16,0,0,0" VerticalAlignment="Center">
+                    <Path Data="{StaticResource IconEye}" Style="{StaticResource IconPathGold}" Width="17" Height="17"/>
+                    <TextBlock Margin="10,0,0,0" VerticalAlignment="Center" FontSize="12.5">
+                        <Run Text="Angra" FontWeight="SemiBold" Foreground="{StaticResource Gold}"/><Run Text="iPhoneTransfer"/>
+                    </TextBlock>
+                    <TextBlock Text="{Binding Status}" Style="{StaticResource Muted}" Margin="18,0,0,0"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="620"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button Style="{StaticResource CaptionButton}" Click="OnMinimise" ToolTip="Minimise">
+                        <Path Data="{StaticResource IconMinimise}" Style="{StaticResource IconPath}" Width="15" Height="15"/>
+                    </Button>
+                    <Button Style="{StaticResource CaptionButton}" Click="OnMaximise" ToolTip="Maximise">
+                        <Path Data="{StaticResource IconMaximise}" Style="{StaticResource IconPath}" Width="13" Height="13"/>
+                    </Button>
+                    <Button Style="{StaticResource CloseButton}" Click="OnClose" ToolTip="Close">
+                        <Path Data="{StaticResource IconClose}" Style="{StaticResource IconPath}" Width="14" Height="14"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- ========================== Body ========================== -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="308"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- ======================== Sidebar ====================== -->
+                <Border Grid.Column="0" Background="{StaticResource Surface}"
+                        BorderBrush="{StaticResource Divider}" BorderThickness="0,1,1,0">
+                    <DockPanel Margin="16,16,16,14">
+
+                        <StackPanel DockPanel.Dock="Bottom">
+                            <Border Height="1" Background="{StaticResource Divider}" Margin="0,10,0,10"/>
+                            <Button Style="{StaticResource SidebarButton}" Command="{Binding ToggleSettingsCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="{StaticResource IconSliders}" Style="{StaticResource IconPath}"/>
+                                    <TextBlock Text="Transfer settings" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <StackPanel Orientation="Horizontal" Margin="12,8,0,0">
+                                <TextBlock Text="{Binding VersionText}" Style="{StaticResource Muted}" FontSize="11"/>
+                                <Button Style="{StaticResource QuietButton}" Content="Logs" Margin="10,0,0,0"
+                                        Command="{Binding OpenLogsCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel>
+
+                                <!-- Device card -->
+                                <Border Style="{StaticResource Card}">
+                                    <StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Path Grid.Column="0" Data="{StaticResource IconPhone}"
+                                                  Style="{StaticResource IconPathGold}" VerticalAlignment="Top" Margin="0,2,0,0"/>
+                                            <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                                <TextBlock Text="{Binding DeviceName}" FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding DeviceSubtitle}" Style="{StaticResource Muted}"
+                                                           Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                            <Border Grid.Column="2" CornerRadius="999" Padding="8,3" Background="{StaticResource GoldSoft}"
+                                                    VerticalAlignment="Top"
+                                                    Visibility="{Binding HasBattery, Converter={StaticResource BoolToVisibility}}">
+                                                <TextBlock Text="{Binding BatteryText}" FontSize="11" Foreground="{StaticResource Gold}"/>
+                                            </Border>
+                                        </Grid>
+
+                                        <StackPanel Margin="0,14,0,0"
+                                                    Visibility="{Binding HasStorage, Converter={StaticResource BoolToVisibility}}">
+                                            <ProgressBar Style="{StaticResource AngraProgress}" Value="{Binding StorageFraction, Mode=OneWay}"/>
+                                            <TextBlock Text="{Binding StorageText}" Style="{StaticResource Muted}" Margin="0,7,0,0"/>
+                                        </StackPanel>
+
+                                        <Button Style="{StaticResource GhostButton}" Margin="0,14,0,0"
+                                                Command="{Binding RescanCommand}" HorizontalAlignment="Stretch">
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                <Path Data="{StaticResource IconRefresh}" Style="{StaticResource IconPath}" Width="15" Height="15"/>
+                                                <TextBlock Text="Scan for phones" Margin="9,0,0,0"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Locations -->
+                                <TextBlock Text="BROWSE" Style="{StaticResource SectionLabel}" Margin="4,20,0,8"/>
+                                <Button Style="{StaticResource SidebarButton}" Command="{Binding CameraRollCommand}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource IconPhoto}" Style="{StaticResource IconPath}"/>
+                                        <TextBlock Text="Camera roll" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource SidebarButton}" Command="{Binding AllMediaCommand}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource IconGrid}" Style="{StaticResource IconPath}"/>
+                                        <TextBlock Text="All photos &amp; videos" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource SidebarButton}" Command="{Binding DeviceRootCommand}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource IconFolder}" Style="{StaticResource IconPath}"/>
+                                        <TextBlock Text="Everything on the phone" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Other devices -->
+                                <StackPanel Visibility="{Binding HasDevices, Converter={StaticResource BoolToVisibility}}">
+                                    <TextBlock Text="DEVICES" Style="{StaticResource SectionLabel}" Margin="4,20,0,8"/>
+                                    <ItemsControl ItemsSource="{Binding Devices}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Style="{StaticResource SidebarButton}"
+                                                        Command="{Binding DataContext.ConnectCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Path Data="{StaticResource IconPhone}" Style="{StaticResource IconPath}" Width="15" Height="15"/>
+                                                        <TextBlock Text="{Binding Name}" Margin="12,0,0,0" VerticalAlignment="Center"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                    </StackPanel>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+
+                                <!-- Destination -->
+                                <TextBlock Text="SAVING TO" Style="{StaticResource SectionLabel}" Margin="4,20,0,8"/>
+                                <Border Style="{StaticResource Card}" Padding="14">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Destination}" TextWrapping="Wrap" FontSize="12.5"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                            <Button Style="{StaticResource GhostButton}" Content="Change…" Padding="12,6"
+                                                    Command="{Binding ChooseDestinationCommand}"/>
+                                            <Button Style="{StaticResource QuietButton}" Content="Open" Margin="8,0,0,0"
+                                                    Command="{Binding OpenDestinationCommand}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+
+                            </StackPanel>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+
+                <!-- ========================= Main ======================== -->
+                <Grid Grid.Column="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Header -->
+                    <Grid Grid.Row="0" Margin="24,18,24,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="{Binding LocationTitle}" Style="{StaticResource Display}"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <Button Style="{StaticResource QuietButton}" Command="{Binding UpCommand}" ToolTip="Up one folder" Padding="6,4">
+                                    <Path Data="{StaticResource IconUp}" Style="{StaticResource IconPath}" Width="14" Height="14"/>
+                                </Button>
+                                <ItemsControl ItemsSource="{Binding Breadcrumbs}" VerticalAlignment="Center" Margin="4,0,0,0">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Style="{StaticResource QuietButton}" Content="{Binding Title}"
+                                                        Command="{Binding DataContext.CrumbCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}"/>
+                                                <Path Data="{StaticResource IconChevron}" Style="{StaticResource IconPath}"
+                                                      Width="10" Height="10" Opacity="0.5" VerticalAlignment="Center"
+                                                      Visibility="{Binding IsLast, Converter={StaticResource NotBoolToVisibility}}"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                            <Border CornerRadius="11" Background="{StaticResource SurfaceAlt}" Padding="12,0" Height="34"
+                                    BorderBrush="{StaticResource Divider}" BorderThickness="1">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Path Data="{StaticResource IconSearch}" Style="{StaticResource IconPath}" Width="15" Height="15"/>
+                                    <TextBox Style="{StaticResource AngraTextBox}" Width="150" Margin="9,0,0,0"
+                                             Text="{Binding Search, UpdateSourceTrigger=PropertyChanged, Delay=200}"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Button Style="{StaticResource IconButton}" Margin="8,0,0,0" Command="{Binding ToggleViewCommand}" ToolTip="Switch between grid and list">
+                                <Grid>
+                                    <Path Data="{StaticResource IconList}" Style="{StaticResource IconPath}" Width="16" Height="16"
+                                          Visibility="{Binding GridView, Converter={StaticResource BoolToVisibility}}"/>
+                                    <Path Data="{StaticResource IconGrid}" Style="{StaticResource IconPath}" Width="16" Height="16"
+                                          Visibility="{Binding ListView, Converter={StaticResource BoolToVisibility}}"/>
+                                </Grid>
+                            </Button>
+                            <Button Style="{StaticResource IconButton}" Command="{Binding RefreshCommand}" ToolTip="Read this folder again">
+                                <Path Data="{StaticResource IconRefresh}" Style="{StaticResource IconPath}" Width="16" Height="16"/>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Filters + tip -->
+                    <StackPanel Grid.Row="1" Margin="24,0,24,10">
+                        <StackPanel Orientation="Horizontal">
+                            <ToggleButton Style="{StaticResource Chip}" Content="Everything" IsChecked="{Binding IsFilterAll, Mode=OneWay}"
+                                          Command="{Binding SetFilterCommand}" CommandParameter="All"/>
+                            <ToggleButton Style="{StaticResource Chip}" Content="Photos" IsChecked="{Binding IsFilterPhotos, Mode=OneWay}"
+                                          Command="{Binding SetFilterCommand}" CommandParameter="Photos"/>
+                            <ToggleButton Style="{StaticResource Chip}" Content="Videos" IsChecked="{Binding IsFilterVideos, Mode=OneWay}"
+                                          Command="{Binding SetFilterCommand}" CommandParameter="Videos"/>
+                            <ToggleButton Style="{StaticResource Chip}" Content="Other files" IsChecked="{Binding IsFilterFiles, Mode=OneWay}"
+                                          Command="{Binding SetFilterCommand}" CommandParameter="Files"/>
+                            <TextBlock Text="{Binding CountText}" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                        </StackPanel>
+
+                        <Border Style="{StaticResource GoldCard}" Margin="0,12,0,0" Padding="14"
+                                Visibility="{Binding ShowKeepOriginalsTip, Converter={StaticResource BoolToVisibility}}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Path Grid.Column="0" Data="{StaticResource IconWarning}" Style="{StaticResource IconPathGold}"
+                                      Width="17" Height="17" VerticalAlignment="Top" Margin="0,1,0,0"/>
+                                <TextBlock Grid.Column="1" Margin="12,0,12,0" TextWrapping="Wrap" FontSize="12.5"
+                                           Text="For untouched originals, set Settings › Photos › Transfer to Mac or PC to &quot;Keep Originals&quot; on the phone. On &quot;Automatic&quot; iOS converts HEIC and HEVC while copying. Photos kept only in iCloud must be downloaded to the phone first."/>
+                                <Button Grid.Column="2" Style="{StaticResource IconButton}" Width="28" Height="28"
+                                        Command="{Binding DismissTipCommand}" ToolTip="Got it">
+                                    <Path Data="{StaticResource IconClose}" Style="{StaticResource IconPath}" Width="12" Height="12"/>
+                                </Button>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Content -->
+                    <Grid Grid.Row="2" Margin="24,0,16,0">
+
+                        <!-- Nothing connected -->
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="440"
+                                    Visibility="{Binding HasDevice, Converter={StaticResource NotBoolToVisibility}}">
+                            <Path Data="{StaticResource IconPhone}" Style="{StaticResource IconPath}" Width="46" Height="46" Opacity="0.55"/>
+                            <TextBlock Text="Connect your iPhone with a cable" Style="{StaticResource Display}"
+                                       HorizontalAlignment="Center" Margin="0,18,0,0"/>
+                            <TextBlock Style="{StaticResource Muted}" TextAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap"
+                                       Text="Unlock the phone and tap Trust when it asks. Everything happens over the cable — this app has no network access at all."/>
+                            <Button Style="{StaticResource PrimaryButton}" Content="Scan for phones" Margin="0,22,0,0"
+                                    HorizontalAlignment="Center" Command="{Binding RescanCommand}"/>
+                        </StackPanel>
+
+                        <!-- Browser -->
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                      Visibility="{Binding HasDevice, Converter={StaticResource BoolToVisibility}}">
+                            <StackPanel Margin="0,0,8,16">
+                                <ItemsControl x:Name="Browser" ItemsSource="{Binding Items}"
+                                              MouseDoubleClick="OnItemDoubleClick">
+                                    <ItemsControl.Style>
+                                        <Style TargetType="ItemsControl">
+                                            <Setter Property="ItemTemplate" Value="{StaticResource TileTemplate}"/>
+                                            <Setter Property="ItemsPanel" Value="{StaticResource TilePanel}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding GridView}" Value="False">
+                                                    <Setter Property="ItemTemplate" Value="{StaticResource RowTemplate}"/>
+                                                    <Setter Property="ItemsPanel" Value="{StaticResource RowPanel}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ItemsControl.Style>
+                                </ItemsControl>
+
+                                <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Center" Margin="0,10,0,0"
+                                        Content="Load more" Command="{Binding LoadMoreCommand}"
+                                        Visibility="{Binding CanLoadMore, Converter={StaticResource BoolToVisibility}}"/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+
+                    <!-- Action dock -->
+                    <Border Grid.Row="3" Background="{StaticResource Surface}" BorderBrush="{StaticResource Divider}"
+                            BorderThickness="0,1,0,0" Padding="24,14">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="{Binding SelectionText}" FontWeight="SemiBold"/>
+                                <StackPanel Orientation="Horizontal" Margin="-10,4,0,0">
+                                    <Button Style="{StaticResource QuietButton}" Content="Select all" Command="{Binding SelectAllCommand}"/>
+                                    <Button Style="{StaticResource QuietButton}" Content="Photos" Command="{Binding SelectPhotosCommand}"/>
+                                    <Button Style="{StaticResource QuietButton}" Content="Videos" Command="{Binding SelectVideosCommand}"/>
+                                    <Button Style="{StaticResource QuietButton}" Content="Clear" Command="{Binding SelectNoneCommand}"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                <Button Style="{StaticResource GhostButton}" Command="{Binding MoveCommand}"
+                                        ToolTip="Copy to this PC, verify, then delete from the phone">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource IconMove}" Style="{StaticResource IconPath}" Width="16" Height="16"/>
+                                        <TextBlock Text="Move off phone" Margin="9,0,0,0"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource PrimaryButton}" Margin="10,0,0,0" Command="{Binding CopyCommand}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource IconCopy}" Stretch="Uniform" Width="16" Height="16"
+                                              Stroke="#FF14130F" StrokeThickness="1.6" StrokeLineJoin="Round"
+                                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                        <TextBlock Text="Copy to PC" Margin="9,0,0,0" Foreground="#FF14130F" FontWeight="SemiBold"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- ===================== Settings flyout ==================== -->
+                <Grid Grid.Column="0" Grid.ColumnSpan="2"
+                      Visibility="{Binding ShowSettings, Converter={StaticResource BoolToVisibility}}">
+                    <Rectangle Fill="#B30A0A0C"/>
+                    <Border Width="392" HorizontalAlignment="Right" Background="{StaticResource Surface}"
+                            BorderBrush="{StaticResource Divider}" BorderThickness="1,0,0,0">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="24">
+                                <Grid>
+                                    <TextBlock Text="Transfer settings" Style="{StaticResource Display}" FontSize="17"/>
+                                    <Button Style="{StaticResource IconButton}" HorizontalAlignment="Right"
+                                            Command="{Binding ToggleSettingsCommand}">
+                                        <Path Data="{StaticResource IconClose}" Style="{StaticResource IconPath}" Width="13" Height="13"/>
+                                    </Button>
+                                </Grid>
+
+                                <TextBlock Text="FOLDERS ON THIS PC" Style="{StaticResource SectionLabel}" Margin="0,22,0,8"/>
+                                <WrapPanel>
+                                    <ToggleButton Style="{StaticResource Segment}" Content="One folder" CommandParameter="Flat"
+                                                  Command="{Binding SetLayoutCommand}"
+                                                  IsChecked="{Binding Layout, Mode=OneWay, Converter={StaticResource EnumEquals}, ConverterParameter=Flat}"/>
+                                    <ToggleButton Style="{StaticResource Segment}" Content="Year" CommandParameter="ByYear"
+                                                  Command="{Binding SetLayoutCommand}"
+                                                  IsChecked="{Binding Layout, Mode=OneWay, Converter={StaticResource EnumEquals}, ConverterParameter=ByYear}"/>
+                                    <ToggleButton Style="{StaticResource Segment}" Content="Year / month" CommandParameter="ByYearMonth"
+                                                  Command="{Binding SetLayoutCommand}"
+                                                  IsChecked="{Binding Layout, Mode=OneWay, Converter={StaticResource EnumEquals}, ConverterParameter=ByYearMonth}"/>
+                                    <ToggleButton Style="{StaticResource Segment}" Content="Year / month / day" CommandParameter="ByYearMonthDay"
+                                                  Command="{Binding SetLayoutCommand}"
+                                                  IsChecked="{Binding Layout, Mode=OneWay, Converter={StaticResource EnumEquals}, ConverterParameter=ByYearMonthDay}"/>
+                                </WrapPanel>
+
+                                <TextBlock Text="WHEN A FILE IS ALREADY THERE" Style="{StaticResource SectionLabel}" Margin="0,22,0,8"/>
+                                <WrapPanel>
+                                    <ToggleButton Style="{StaticResource Segment}" Content="Skip it" CommandParameter="Skip"
+                                                  Command="{Binding SetDuplicatesCommand}"
+                                                  IsChecked="{Binding Duplicates, Mode=OneWay, Converter={StaticResource EnumEquals}, ConverterParameter=Skip}"/>
+                                    <ToggleButton Style="{StaticResource Segment}" Content="Keep both" CommandParameter="KeepBoth"
+                                                  Command="{Binding SetDuplicatesCommand}"
+                                                  IsChecked="{Binding Duplicates, Mode=OneWay, Converter={StaticResource EnumEquals}, ConverterParameter=KeepBoth}"/>
+                                    <ToggleButton Style="{StaticResource Segment}" Content="Overwrite" CommandParameter="Overwrite"
+                                                  Command="{Binding SetDuplicatesCommand}"
+                                                  IsChecked="{Binding Duplicates, Mode=OneWay, Converter={StaticResource EnumEquals}, ConverterParameter=Overwrite}"/>
+                                </WrapPanel>
+
+                                <TextBlock Text="WHAT TRAVELS WITH A PHOTO" Style="{StaticResource SectionLabel}" Margin="0,22,0,10"/>
+                                <CheckBox Style="{StaticResource AngraCheckBox}" Content="Keep Live Photo pairs together"
+                                          IsChecked="{Binding KeepLivePhotoPairs}"/>
+                                <TextBlock Style="{StaticResource Muted}" Margin="27,4,0,0" TextWrapping="Wrap" FontSize="11"
+                                           Text="A Live Photo is a still and a short movie sharing one name — take one and you take both."/>
+                                <CheckBox Style="{StaticResource AngraCheckBox}" Content="Include .AAE edit sidecars" Margin="0,14,0,0"
+                                          IsChecked="{Binding IncludeEditSidecars}"/>
+
+                                <TextBlock Text="SAFETY" Style="{StaticResource SectionLabel}" Margin="0,22,0,10"/>
+                                <CheckBox Style="{StaticResource AngraCheckBox}" Content="Verify every file against the size the phone reports"
+                                          IsChecked="{Binding VerifySize}"/>
+                                <TextBlock Style="{StaticResource Muted}" Margin="27,4,0,0" TextWrapping="Wrap" FontSize="11"
+                                           Text="A move never deletes an original that failed to verify."/>
+
+                                <TextBlock Text="APPEARANCE" Style="{StaticResource SectionLabel}" Margin="0,22,0,10"/>
+                                <CheckBox Style="{StaticResource AngraCheckBox}" Content="Show thumbnails from the phone"
+                                          IsChecked="{Binding ShowThumbnails}"/>
+                                <TextBlock Style="{StaticResource Muted}" Margin="27,4,0,0" TextWrapping="Wrap" FontSize="11"
+                                           Text="Turn this off on very large camera rolls to browse faster."/>
+
+                                <Button Style="{StaticResource GhostButton}" Content="Done" Margin="0,26,0,0"
+                                        HorizontalAlignment="Stretch" Command="{Binding ToggleSettingsCommand}"/>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+
+                <!-- ======================= Result toast ===================== -->
+                <Border Grid.Column="1" Style="{StaticResource Card}" Width="420" Padding="18"
+                        HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,26,96"
+                        Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel>
+                        <Grid>
+                            <TextBlock Text="{Binding ResultTitle}" FontWeight="SemiBold" FontSize="14"/>
+                            <Button Style="{StaticResource IconButton}" Width="26" Height="26" HorizontalAlignment="Right"
+                                    Command="{Binding DismissResultCommand}">
+                                <Path Data="{StaticResource IconClose}" Style="{StaticResource IconPath}" Width="11" Height="11"/>
+                            </Button>
+                        </Grid>
+                        <TextBlock Text="{Binding ResultDetail}" Style="{StaticResource Muted}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                            <Button Style="{StaticResource GhostButton}" Padding="12,6" Command="{Binding OpenDestinationCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Data="{StaticResource IconOpen}" Style="{StaticResource IconPath}" Width="14" Height="14"/>
+                                    <TextBlock Text="Open folder" Margin="8,0,0,0"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource QuietButton}" Content="Report" Margin="8,0,0,0"
+                                    Command="{Binding OpenReportCommand}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ====================== Transfer overlay ================== -->
+                <Grid Grid.Column="0" Grid.ColumnSpan="2"
+                      Visibility="{Binding IsTransferring, Converter={StaticResource BoolToVisibility}}">
+                    <Rectangle Fill="#E60A0A0C"/>
+                    <Border Style="{StaticResource Card}" Width="580" Padding="28" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <StackPanel>
+                            <TextBlock Text="{Binding ProgressHeadline}" Style="{StaticResource Display}" FontSize="17"/>
+                            <TextBlock Text="{Binding ProgressFile}" Style="{StaticResource Muted}" Margin="0,8,0,0"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <Grid Margin="0,20,0,0">
+                                <ProgressBar Style="{StaticResource AngraProgress}" Height="8"
+                                             Value="{Binding ProgressFraction, Mode=OneWay}"/>
+                            </Grid>
+                            <Grid Margin="0,12,0,0">
+                                <TextBlock Text="{Binding ProgressDetail}" Style="{StaticResource Muted}"/>
+                                <TextBlock Text="{Binding ProgressPercent}" Style="{StaticResource Muted}"
+                                           HorizontalAlignment="Right" Foreground="{StaticResource Gold}"/>
+                            </Grid>
+                            <Button Style="{StaticResource GhostButton}" Content="Stop" Margin="0,22,0,0"
+                                    HorizontalAlignment="Center" Command="{Binding CancelTransferCommand}"/>
+                            <TextBlock Style="{StaticResource Muted}" FontSize="11" Margin="0,12,0,0" TextAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       Text="Stopping is safe: the file in flight is discarded and nothing is removed from the phone unless it has already been copied and verified."/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- ======================= Confirmation ==================== -->
+                <Grid Grid.Column="0" Grid.ColumnSpan="2"
+                      Visibility="{Binding ShowConfirm, Converter={StaticResource BoolToVisibility}}">
+                    <Rectangle Fill="#E60A0A0C"/>
+                    <Border Style="{StaticResource Card}" Width="540" Padding="28" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="{StaticResource IconWarning}" Style="{StaticResource IconPathGold}" Width="20" Height="20"/>
+                                <TextBlock Text="{Binding ConfirmTitle}" Style="{StaticResource Display}" FontSize="17" Margin="12,0,0,0"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding ConfirmMessage}" Style="{StaticResource Muted}" Margin="0,14,0,0" TextWrapping="Wrap"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,24,0,0">
+                                <Button Style="{StaticResource GhostButton}" Content="Cancel" Command="{Binding ConfirmCancelCommand}"/>
+                                <Button Style="{StaticResource PrimaryButton}" Margin="10,0,0,0"
+                                        Content="{Binding ConfirmAccept}" Command="{Binding ConfirmAcceptCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

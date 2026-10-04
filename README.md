@@ -9,7 +9,7 @@ Built for the moments that matter: one-tap capture, recording that survives a
 locked screen, an optional stealth auto-lock, and the freedom to store evidence
 wherever you choose — on the phone or in a folder you pick.
 
-iOS sibling: [EyeofAngra for iPhone](https://github.com/HARSHBHINDER/EyeofAngra-iOS).
+iOS sibling: [EyeofAngra for iPhone](https://github.com/HARSHBHINDER/EyeofAngraiOS).
 
 ## Downloads
 
@@ -103,6 +103,14 @@ Recording only ever starts from your explicit action. While recording, Android
 shows a permanent notification plus its own camera/microphone indicators —
 this app does not and will not hide them. It is not a covert surveillance
 tool.
+
+## Also in this repository
+
+**[AngraiPhoneTransfer](AngraiPhoneTransfer)** — a Windows desktop app that
+copies or moves photos, videos and files off an **iPhone** over the USB cable,
+as plain full-resolution files rather than an iTunes backup. Same design
+language, same no-cloud stance; download the `.exe` installer from the
+[latest Windows build](../../releases/tag/windows-latest).
 
 ## Legal disclaimer
 
