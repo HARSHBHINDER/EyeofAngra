@@ -9,7 +9,7 @@ Built for the moments that matter: one-tap capture, recording that survives a
 locked screen, an optional stealth auto-lock, and the freedom to store evidence
 wherever you choose — on the phone or in a folder you pick.
 
-iOS sibling: [EyeofAngra for iPhone](https://github.com/HARSHBHINDER/EyeofAngra-iOS).
+iOS sibling: [EyeofAngra for iPhone](https://github.com/HARSHBHINDER/EyeofAngraiOS).
 
 ## Downloads
 
