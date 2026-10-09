@@ -23,7 +23,7 @@ data class MediaEntry(
 
 object MediaLibrary {
 
-    private fun mime(name: String) = when (name.substringAfterLast('.', "").lowercase()) {
+    fun mime(name: String) = when (name.substringAfterLast('.', "").lowercase()) {
         "mp4" -> "video/mp4"
         "m4a" -> "audio/mp4"
         else -> "image/jpeg"
@@ -79,4 +79,15 @@ object MediaLibrary {
         return runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }
             .getOrDefault(false)
     }
+
+    /// Copies a capture to a destination the user picked (SAF), so it can leave
+    /// the vault for any folder without deleting the original.
+    fun export(context: Context, entry: MediaEntry, dest: Uri): Boolean = runCatching {
+        val input = entry.file?.inputStream()
+            ?: context.contentResolver.openInputStream(entry.docUri!!)
+            ?: return false
+        val output = context.contentResolver.openOutputStream(dest) ?: return false
+        input.use { i -> output.use { o -> i.copyTo(o) } }
+        true
+    }.getOrDefault(false)
 }

@@ -3,6 +3,15 @@
   "release_asset": "app-debug.apk",
   "versions": [
     {
+      "version": "2.1",
+      "date": "2026-09-27",
+      "apk": "EyeofAngra-v2.1.apk",
+      "release_tag": null,
+      "changes": [
+        "Vault: Export a capture to any folder, as a Copy (keeps the original) or a Move (removes it from the vault once the export succeeds)."
+      ]
+    },
+    {
       "version": "2.0",
       "date": "2026-08-05",
       "apk": "EyeofAngra-v2.0.apk",

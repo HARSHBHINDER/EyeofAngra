@@ -1,5 +1,7 @@
 package com.eyeofangra.app.feature
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -47,8 +49,37 @@ fun VaultScreen(refreshKey: Any?) {
     val context = LocalContext.current
     var filter by remember { mutableStateOf(Filter.All) }
     var pendingDelete by remember { mutableStateOf<MediaEntry?>(null) }
+    var exportChoice by remember { mutableStateOf<MediaEntry?>(null) }
+    var exportTarget by remember { mutableStateOf<MediaEntry?>(null) }
+    var exportMove by remember { mutableStateOf(false) }
     // Recomputed whenever a recording finishes or an item is deleted.
     var version by remember { mutableStateOf(0) }
+    // A real mime type (not "*/*") so SAF keeps the right extension — an export
+    // saved with the wrong extension plays back as corrupt even though the bytes
+    // (already MP4/AAC from the recorder) are untouched.
+    val onExportResult: (android.net.Uri?) -> Unit = { dest ->
+        val target = exportTarget
+        val move = exportMove
+        exportTarget = null
+        if (dest != null && target != null) {
+            val ok = MediaLibrary.export(context, target, dest)
+            if (ok && move) {
+                MediaLibrary.delete(context, target)
+                version++
+            }
+        }
+    }
+    val exportVideoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4"), onExportResult)
+    val exportAudioLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/mp4"), onExportResult)
+    val exportPhotoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/jpeg"), onExportResult)
+    fun launchExport(entry: MediaEntry) {
+        exportTarget = entry
+        when (MediaLibrary.mime(entry.name)) {
+            "video/mp4" -> exportVideoLauncher.launch(entry.name)
+            "audio/mp4" -> exportAudioLauncher.launch(entry.name)
+            else -> exportPhotoLauncher.launch(entry.name)
+        }
+    }
 
     // Both locations: this app's storage and the folder chosen in Settings.
     val files = remember(filter, version, refreshKey) {
@@ -107,6 +138,7 @@ fun VaultScreen(refreshKey: Any?) {
                         entry = entry,
                         onOpen = { MediaLibrary.open(context, entry) },
                         onDelete = { pendingDelete = entry },
+                        onExport = { exportChoice = entry },
                     )
                 }
             }
@@ -132,10 +164,37 @@ fun VaultScreen(refreshKey: Any?) {
             containerColor = Angra.Surface,
         )
     }
+
+    // Copy keeps the original in the vault; Move removes it once the export succeeds.
+    exportChoice?.let { entry ->
+        AlertDialog(
+            onDismissRequest = { exportChoice = null },
+            title = { Text("Export this recording?") },
+            text = { Text("Pick a folder for ${entry.name}.") },
+            confirmButton = {
+                Row {
+                    TextButton(onClick = {
+                        exportChoice = null
+                        exportMove = false
+                        launchExport(entry)
+                    }) { Text("Copy") }
+                    TextButton(onClick = {
+                        exportChoice = null
+                        exportMove = true
+                        launchExport(entry)
+                    }) { Text("Move", color = Angra.Recording) }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { exportChoice = null }) { Text("Cancel") }
+            },
+            containerColor = Angra.Surface,
+        )
+    }
 }
 
 @Composable
-private fun MediaRow(entry: MediaEntry, onOpen: () -> Unit, onDelete: () -> Unit) {
+private fun MediaRow(entry: MediaEntry, onOpen: () -> Unit, onDelete: () -> Unit, onExport: () -> Unit) {
     val kind = when (entry.name.take(3)) {
         "VID" -> "Video"
         "AUD" -> "Audio"
@@ -166,6 +225,7 @@ private fun MediaRow(entry: MediaEntry, onOpen: () -> Unit, onDelete: () -> Unit
             Text("$kind · ${RecordingStore.formatBytes(entry.size)}", color = Angra.TextPrimary, fontSize = Angra.bodySize)
             Text("$captured · $where", color = Angra.TextSecondary, fontSize = Angra.labelSize)
         }
+        TextButton(onClick = onExport) { Text("Export", color = Angra.TextSecondary) }
         TextButton(onClick = onDelete) { Text("Delete", color = Angra.TextSecondary) }
     }
 }
