@@ -9,7 +9,7 @@
       "release_tag": "latest",
       "changes": [
         "Auto-rotation removed: the app stays in portrait, so locking the phone mid-recording can no longer leave the lock screen in a broken landscape layout.",
-        "Recordings and photos still come out the right way round: the orientation sensor tags each capture with how the phone was held."
+        "Recordings and photos are portrait too, however the phone is held: the screen, the record button and the captures never change orientation."
       ]
     },
     {
