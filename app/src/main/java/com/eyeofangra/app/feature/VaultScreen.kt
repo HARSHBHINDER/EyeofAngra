@@ -30,8 +30,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -82,71 +80,71 @@ private enum class Filter(val label: String, val prefixes: List<String>) {
 fun VaultScreen(refreshKey: Any?) {
     val context = LocalContext.current
     var filter by remember { mutableStateOf(Filter.All) }
-    var pendingDelete by remember { mutableStateOf<MediaEntry?>(null) }
-    var exportChoice by remember { mutableStateOf<MediaEntry?>(null) }
-    var exportTarget by remember { mutableStateOf<MediaEntry?>(null) }
-    var exportMove by remember { mutableStateOf(false) }
-    // Recomputed whenever a recording finishes or an item is deleted.
+    // Selection mode: tap toggles, the action bar acts on every ticked item.
+    var selecting by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf(setOf<String>()) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    var pendingMove by remember { mutableStateOf(false) }
     var version by remember { mutableStateOf(0) }
     // App-wide, so leaving the Vault mid-export and coming back shows the bar again.
-    val exportPercent by Exporter.progress.collectAsState()
+    val status by Exporter.status.collectAsState()
     val notice by Exporter.notice.collectAsState()
     val exportChanges by Exporter.changes.collectAsState()
-    // A real mime type (not "*/*") so SAF keeps the right extension — an export
-    // saved with the wrong extension plays back as corrupt even though the bytes
-    // (already MP4/AAC from the recorder) are untouched.
-    val onExportResult: (android.net.Uri?) -> Unit = { dest ->
-        val target = exportTarget
-        val move = exportMove
-        exportTarget = null
-        if (dest != null && target != null) Exporter.start(context, target, dest, move)
-    }
-    val exportVideoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4"), onExportResult)
-    val exportAudioLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/mp4"), onExportResult)
-    val exportPhotoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/jpeg"), onExportResult)
-    fun launchExport(entry: MediaEntry) {
-        exportTarget = entry
-        when (MediaLibrary.mime(entry.name)) {
-            "video/mp4" -> exportVideoLauncher.launch(entry.name)
-            "audio/mp4" -> exportAudioLauncher.launch(entry.name)
-            else -> exportPhotoLauncher.launch(entry.name)
-        }
-    }
 
-    // Both locations: this app's storage and the folder chosen in Settings.
     val files = remember(filter, version, refreshKey, exportChanges) {
         MediaLibrary.list(context, filter.prefixes)
     }
     val used = remember(version, refreshKey, exportChanges) { MediaLibrary.usedBytes(context) }
-    val free = remember(version, refreshKey) { RecordingStore.freeBytes(context) }
+    val free = remember(version, refreshKey, exportChanges) { RecordingStore.freeBytes(context) }
+    val chosen = files.filter { it.id in selected }
+    fun endSelection() { selecting = false; selected = emptySet() }
+
+    // One folder pick for the whole batch; each file keeps its own name and type.
+    val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
+        if (tree != null) {
+            Exporter.start(context, chosen, tree, pendingMove)
+            endSelection()
+        }
+    }
 
     Column(Modifier.fillMaxSize().background(Angra.Background)) {
         Row(
-            Modifier.fillMaxWidth().padding(start = Angra.s4, end = Angra.s4, top = Angra.s5),
-            verticalAlignment = Alignment.Bottom,
+            Modifier.fillMaxWidth().padding(start = Angra.s4, end = Angra.s2, top = Angra.s5),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                "Vault",
+                if (selecting) "${selected.size} selected" else "Vault",
                 Modifier.weight(1f),
                 color = Angra.TextPrimary,
-                fontSize = 30.sp,
+                fontSize = if (selecting) 22.sp else 30.sp,
                 fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.SemiBold,
             )
-            Text(RecordingStore.formatBytes(used), color = Angra.TextSecondary, fontSize = Angra.labelSize)
+            if (selecting) {
+                TextButton(onClick = {
+                    selected = if (selected.size == files.size) emptySet() else files.map { it.id }.toSet()
+                }) { Text(if (selected.size == files.size) "None" else "All", color = Angra.Gold) }
+                TextButton(onClick = { endSelection() }) { Text("Cancel", color = Angra.TextSecondary) }
+            } else if (files.isNotEmpty()) {
+                TextButton(onClick = { selecting = true }) { Text("Select", color = Angra.Gold) }
+            }
         }
         Text(
-            "Held only on this device · ${RecordingStore.formatBytes(free)} free",
-            Modifier.padding(horizontal = Angra.s4, vertical = Angra.s1),
+            "${RecordingStore.formatBytes(used)} · held only on this device · ${RecordingStore.formatBytes(free)} free",
+            Modifier.padding(horizontal = Angra.s4),
             color = Angra.TextSecondary,
             fontSize = Angra.labelSize,
         )
 
-        exportPercent?.let { pct ->
-            Column(Modifier.fillMaxWidth().padding(horizontal = Angra.s4, vertical = Angra.s1)) {
-                Text("Exporting… $pct%", color = Angra.Gold, fontSize = Angra.labelSize)
+        status?.let { st ->
+            Column(Modifier.fillMaxWidth().padding(horizontal = Angra.s4, vertical = Angra.s2)) {
+                Text(
+                    "Exporting ${st.index} of ${st.count} · ${st.percent}%",
+                    color = Angra.Gold,
+                    fontSize = Angra.labelSize,
+                )
                 LinearProgressIndicator(
-                    progress = { pct / 100f },
+                    progress = { st.percent / 100f },
                     modifier = Modifier.fillMaxWidth().padding(top = Angra.s1),
                     color = Angra.Gold,
                     trackColor = Angra.SurfaceAlt,
@@ -167,17 +165,17 @@ fun VaultScreen(refreshKey: Any?) {
             horizontalArrangement = Arrangement.spacedBy(Angra.s2),
         ) {
             Filter.entries.forEach { f ->
-                val selected = filter == f
+                val on = filter == f
                 Text(
                     f.label,
                     Modifier
                         .clip(RoundedCornerShape(50))
-                        .background(if (selected) Angra.GoldGradient else SolidColor(Angra.SurfaceAlt))
-                        .clickable { filter = f }
+                        .background(if (on) Angra.GoldGradient else SolidColor(Angra.SurfaceAlt))
+                        .clickable { filter = f; selected = emptySet() }
                         .padding(horizontal = 16.dp, vertical = 8.dp),
-                    color = if (selected) Angra.Background else Angra.TextSecondary,
+                    color = if (on) Angra.Background else Angra.TextSecondary,
                     fontSize = 14.sp,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                    fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
                 )
             }
         }
@@ -190,72 +188,78 @@ fun VaultScreen(refreshKey: Any?) {
                 textAlign = TextAlign.Center,
             )
         } else {
-            Text(
-                "Tap to play · hold for export or delete",
-                Modifier.padding(start = Angra.s4, bottom = Angra.s2),
-                color = Angra.TextDisabled,
-                fontSize = 11.sp,
-            )
+            if (!selecting) {
+                Text(
+                    "Tap to play · hold to select",
+                    Modifier.padding(start = Angra.s4, bottom = Angra.s2),
+                    color = Angra.TextDisabled,
+                    fontSize = 11.sp,
+                )
+            }
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(108.dp),
+                modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(start = Angra.s4, end = Angra.s4, bottom = Angra.s5),
                 horizontalArrangement = Arrangement.spacedBy(Angra.s3),
                 verticalArrangement = Arrangement.spacedBy(Angra.s3),
             ) {
                 items(files, key = { it.id }) { entry ->
+                    val on = entry.id in selected
                     Tile(
                         entry = entry,
-                        onOpen = { MediaLibrary.open(context, entry) },
-                        onExport = { exportChoice = entry },
-                        onDelete = { pendingDelete = entry },
+                        selecting = selecting,
+                        selected = on,
+                        onClick = {
+                            if (selecting) selected = if (on) selected - entry.id else selected + entry.id
+                            else MediaLibrary.open(context, entry)
+                        },
+                        onLongClick = {
+                            selecting = true
+                            selected = selected + entry.id
+                        },
                     )
+                }
+            }
+        }
+
+        if (selecting) {
+            val enabled = chosen.isNotEmpty() && status == null
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .background(Angra.Surface)
+                    .padding(horizontal = Angra.s2, vertical = Angra.s1),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                TextButton(enabled = enabled, onClick = { pendingMove = false; pickFolder.launch(null) }) {
+                    Text("Copy to folder", color = if (enabled) Angra.Gold else Angra.TextDisabled)
+                }
+                TextButton(enabled = enabled, onClick = { pendingMove = true; pickFolder.launch(null) }) {
+                    Text("Move to folder", color = if (enabled) Angra.Gold else Angra.TextDisabled)
+                }
+                TextButton(enabled = enabled, onClick = { confirmDelete = true }) {
+                    Text("Delete", color = if (enabled) Angra.Recording else Angra.TextDisabled)
                 }
             }
         }
     }
 
     // Deleting evidence is irreversible, so it always asks first.
-    pendingDelete?.let { entry ->
+    if (confirmDelete) {
         AlertDialog(
-            onDismissRequest = { pendingDelete = null },
-            title = { Text("Delete this recording?") },
-            text = { Text("${entry.name} will be permanently removed from this device. This cannot be undone.") },
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Delete ${chosen.size} ${if (chosen.size == 1) "item" else "items"}?") },
+            text = { Text("They will be permanently removed from this device. This cannot be undone.") },
             confirmButton = {
                 TextButton(onClick = {
-                    MediaLibrary.delete(context, entry)
-                    pendingDelete = null
+                    chosen.forEach { MediaLibrary.delete(context, it) }
+                    confirmDelete = false
+                    endSelection()
                     version++
                 }) { Text("Delete", color = Angra.Recording) }
             },
             dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
-            },
-            containerColor = Angra.Surface,
-        )
-    }
-
-    // Copy keeps the original in the vault; Move removes it once the export succeeds.
-    exportChoice?.let { entry ->
-        AlertDialog(
-            onDismissRequest = { exportChoice = null },
-            title = { Text("Export this recording?") },
-            text = { Text("Pick a folder for ${entry.name}.") },
-            confirmButton = {
-                Row {
-                    TextButton(onClick = {
-                        exportChoice = null
-                        exportMove = false
-                        launchExport(entry)
-                    }) { Text("Copy") }
-                    TextButton(onClick = {
-                        exportChoice = null
-                        exportMove = true
-                        launchExport(entry)
-                    }) { Text("Move", color = Angra.Recording) }
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { exportChoice = null }) { Text("Cancel") }
+                TextButton(onClick = { confirmDelete = false }) { Text("Cancel") }
             },
             containerColor = Angra.Surface,
         )
@@ -266,10 +270,9 @@ fun VaultScreen(refreshKey: Any?) {
 /// frame for every tile. A scrim keeps the size legible over any image.
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun Tile(entry: MediaEntry, onOpen: () -> Unit, onExport: () -> Unit, onDelete: () -> Unit) {
+private fun Tile(entry: MediaEntry, selecting: Boolean, selected: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
     val context = LocalContext.current
     val kind = entry.name.take(3)
-    var menu by remember { mutableStateOf(false) }
     val info by produceState(TileInfo(null, null), entry.id) {
         value = withContext(Dispatchers.IO) { loadInfo(context, entry, kind) }
     }
@@ -280,8 +283,8 @@ private fun Tile(entry: MediaEntry, onOpen: () -> Unit, onExport: () -> Unit, on
             .aspectRatio(1f)
             .clip(shape)
             .background(Angra.CardGradient)
-            .border(Angra.hairline, Angra.EdgeLight, shape)
-            .combinedClickable(onClick = onOpen, onLongClick = { menu = true }),
+            .border(if (selected) 2.dp else Angra.hairline, if (selected) Angra.GoldGradient else Angra.EdgeLight, shape)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
         val image = info.thumb
         if (image != null) {
@@ -319,7 +322,7 @@ private fun Tile(entry: MediaEntry, onOpen: () -> Unit, onExport: () -> Unit, on
         }
         // Marks files written to the folder chosen in Settings, so "not in the app
         // folder" never reads as "lost".
-        if (entry.inChosenFolder) {
+        if (entry.inChosenFolder && !selecting) {
             Text(
                 "FOLDER",
                 Modifier
@@ -333,10 +336,21 @@ private fun Tile(entry: MediaEntry, onOpen: () -> Unit, onExport: () -> Unit, on
                 letterSpacing = 1.sp,
             )
         }
-        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            DropdownMenuItem(text = { Text("Open") }, onClick = { menu = false; onOpen() })
-            DropdownMenuItem(text = { Text("Export") }, onClick = { menu = false; onExport() })
-            DropdownMenuItem(text = { Text("Delete", color = Angra.Recording) }, onClick = { menu = false; onDelete() })
+        // Selection tick: gold filled when chosen, an empty ring otherwise.
+        if (selecting) {
+            if (selected) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.25f)))
+            Box(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp)
+                    .size(22.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(if (selected) Angra.GoldGradient else SolidColor(Color.Black.copy(alpha = 0.4f)))
+                    .border(1.5.dp, Angra.TextPrimary, RoundedCornerShape(50)),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (selected) Text("✓", color = Angra.Background, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

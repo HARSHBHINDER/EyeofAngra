@@ -90,53 +90,47 @@ object MediaLibrary {
             .getOrDefault(false)
     }
 
-    /// Copies a capture to a folder the user picked (SAF). MP4 keeps its index at
-    /// the end, so success means every byte arrived — never "the copy started".
+    /// Copies one capture to [dest] (a SAF document). MP4 keeps its index at the
+    /// end, so success means every byte arrived — never "the copy started".
     ///
-    /// Smoothness, not just speed: written data is synced to flash every 16 MB.
-    /// Without that the kernel buffers gigabytes, then stalls everything to flush
-    /// them in bursts — the fast-slow-fast progress and the janky screen.
-    fun export(context: Context, entry: MediaEntry, dest: Uri, onProgress: (Int) -> Unit = {}): Boolean = runCatching {
+    /// Low load: FileChannel.transferTo hands the copy to the kernel instead of
+    /// pumping every byte through app memory, and a sync every 16 MB stops the
+    /// kernel buffering gigabytes and then stalling everything to flush them.
+    fun export(context: Context, entry: MediaEntry, dest: Uri, onBytes: (Long) -> Unit = {}): Boolean = runCatching {
         val inPfd = entry.file?.let { ParcelFileDescriptor.open(it, ParcelFileDescriptor.MODE_READ_ONLY) }
             ?: context.contentResolver.openFileDescriptor(entry.docUri!!, "r")
             ?: return false
         val outPfd = context.contentResolver.openFileDescriptor(dest, "wt") ?: return false
-        var copied = 0L
-        var sinceSync = 0L
-        var lastPercent = -1
         inPfd.use { inP ->
             outPfd.use { outP ->
-                val input = FileInputStream(inP.fileDescriptor)
-                val output = FileOutputStream(outP.fileDescriptor)
-                val buffer = ByteArray(1 shl 20)
-                while (true) {
-                    val n = input.read(buffer)
-                    if (n < 0) break
-                    output.write(buffer, 0, n)
-                    copied += n
-                    sinceSync += n
-                    if (sinceSync >= SYNC_EVERY) {
-                        sinceSync = 0
-                        // Some providers (FUSE) reject these; the copy is still correct.
-                        runCatching { Os.fdatasync(outP.fileDescriptor) }
-                    }
-                    val percent = if (entry.size > 0) (copied * 100 / entry.size).toInt() else 0
-                    if (percent != lastPercent) { lastPercent = percent; onProgress(percent) }
+                val source = FileInputStream(inP.fileDescriptor).channel
+                val target = FileOutputStream(outP.fileDescriptor).channel
+                val total = source.size()
+                var position = 0L
+                while (position < total) {
+                    val n = source.transferTo(position, minOf(CHUNK, total - position), target)
+                    if (n <= 0) break
+                    position += n
+                    onBytes(n)
+                    // Some providers (FUSE) reject this; the copy is still correct.
+                    runCatching { Os.fdatasync(outP.fileDescriptor) }
                 }
                 runCatching { Os.fsync(outP.fileDescriptor) }
+                position == total && total == entry.size
             }
         }
-        copied == entry.size
     }.getOrDefault(false)
 
-    private const val SYNC_EVERY = 16L shl 20
+    private const val CHUNK = 16L shl 20
 }
 
-/// One export at a time, owned by the app rather than a screen, so its progress
-/// survives switching tabs and the Vault picks it straight back up.
+/// Progress of a batch export: item [index] of [count], [percent] of all bytes.
+data class ExportStatus(val index: Int, val count: Int, val percent: Int)
+
+/// One batch export at a time, owned by the app rather than a screen, so its
+/// progress survives switching tabs and the Vault picks it straight back up.
 object Exporter {
-    /// 0..100 while running, null when idle.
-    val progress = MutableStateFlow<Int?>(null)
+    val status = MutableStateFlow<ExportStatus?>(null)
     val notice = MutableStateFlow<String?>(null)
     /// Bumped when an export changes the vault contents (a Move), so lists refresh.
     val changes = MutableStateFlow(0)
@@ -145,32 +139,50 @@ object Exporter {
     // must survive the app being swiped away.
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    fun start(context: Context, entry: MediaEntry, dest: Uri, move: Boolean) {
-        if (progress.value != null) return
+    /// Copies (or moves) [entries] into the folder [tree] the user picked once.
+    fun start(context: Context, entries: List<MediaEntry>, tree: Uri, move: Boolean) {
+        if (status.value != null || entries.isEmpty()) return
         val app = context.applicationContext
-        progress.value = 0
+        status.value = ExportStatus(1, entries.size, 0)
         scope.launch {
             // Background priority: the copy yields the CPU to the UI instead of
-            // competing with it, which is what made the screen stutter.
+            // competing with it.
             val previous = Process.getThreadPriority(Process.myTid())
             Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND)
-            val ok = try {
-                MediaLibrary.export(app, entry, dest) { progress.value = it }
+            var failed = 0
+            try {
+                val total = entries.sumOf { it.size }.coerceAtLeast(1)
+                var done = 0L
+                var lastPercent = 0
+                val dir = DocumentFile.fromTreeUri(app, tree)
+                entries.forEachIndexed { i, entry ->
+                    status.value = ExportStatus(i + 1, entries.size, lastPercent)
+                    val doc = dir?.createFile(MediaLibrary.mime(entry.name), entry.name)
+                    val ok = doc != null && MediaLibrary.export(app, entry, doc.uri) { n ->
+                        done += n
+                        val percent = (done * 100 / total).toInt()
+                        if (percent != lastPercent) {
+                            lastPercent = percent
+                            status.value = ExportStatus(i + 1, entries.size, percent)
+                        }
+                    }
+                    if (ok) {
+                        // Move removes the original only after a verified copy.
+                        if (move) MediaLibrary.delete(app, entry)
+                    } else {
+                        failed++
+                        // Never leave a half-copied, unplayable file behind.
+                        runCatching { doc?.delete() }
+                    }
+                }
             } finally {
                 Process.setThreadPriority(previous)
             }
-            if (ok) {
-                if (move) {
-                    MediaLibrary.delete(app, entry)
-                    changes.value++
-                }
-                notice.value = if (move) "Moved" else "Exported"
-            } else {
-                // Never leave a half-copied, unplayable file in the user's folder.
-                runCatching { DocumentsContract.deleteDocument(app.contentResolver, dest) }
-                notice.value = "Export failed — the original is untouched"
-            }
-            progress.value = null
+            if (move) changes.value++
+            val verb = if (move) "Moved" else "Copied"
+            notice.value = if (failed == 0) "$verb ${entries.size} ${if (entries.size == 1) "item" else "items"}"
+            else "$failed of ${entries.size} failed — those originals are untouched"
+            status.value = null
         }
     }
 }

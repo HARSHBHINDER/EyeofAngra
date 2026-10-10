@@ -3,10 +3,22 @@
   "release_asset": "app-debug.apk",
   "versions": [
     {
+      "version": "2.5",
+      "date": "2026-10-10",
+      "apk": "EyeofAngra-v2.5.apk",
+      "release_tag": "latest",
+      "changes": [
+        "Select mode in the Vault: tap Select or hold any tile, tick as many videos, photos and audio clips as you like, or use All.",
+        "Batch actions for every file type: Copy to folder, Move to folder (pick the folder once for the whole batch), and Delete with one confirmation.",
+        "Lighter exports: the copy is handed to the system kernel (FileChannel.transferTo) instead of passing every byte through the app, still synced every 16 MB and run at background priority.",
+        "Progress shows which item of the batch is copying and the overall percentage."
+      ]
+    },
+    {
       "version": "2.4",
       "date": "2026-10-10",
       "apk": "EyeofAngra-v2.4.apk",
-      "release_tag": "latest",
+      "release_tag": null,
       "changes": [
         "Export is smooth: data is written to storage every 16 MB instead of buffering gigabytes and stalling, so progress moves steadily and the phone stays responsive.",
         "Export runs at background priority, so the screen and other apps always come first.",
