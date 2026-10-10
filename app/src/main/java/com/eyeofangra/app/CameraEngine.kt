@@ -12,6 +12,8 @@ import androidx.camera.video.Recorder
 import androidx.camera.video.VideoCapture
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 /// Owns every CameraX binding so use cases are never bound twice or orphaned.
 ///
@@ -63,12 +65,15 @@ object CameraEngine {
         onReady: (VideoCapture<Recorder>) -> Unit,
     ) {
         withProvider(context) { p ->
+            // Quality chosen in Settings; falls back lower on phones that cannot reach it.
+            val quality = when (runBlocking { SettingsStore.flow(context).first().videoQuality }) {
+                "4K" -> Quality.UHD
+                "720p" -> Quality.HD
+                else -> Quality.FHD
+            }
             val recorder = Recorder.Builder()
                 .setQualitySelector(
-                    QualitySelector.from(
-                        Quality.HIGHEST,
-                        FallbackStrategy.lowerQualityOrHigherThan(Quality.SD),
-                    ),
+                    QualitySelector.from(quality, FallbackStrategy.lowerQualityOrHigherThan(quality)),
                 )
                 .build()
             val capture = VideoCapture.withOutput(recorder)

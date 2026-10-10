@@ -3,6 +3,18 @@
   "release_asset": "app-debug.apk",
   "versions": [
     {
+      "version": "2.2",
+      "date": "2026-10-10",
+      "apk": "EyeofAngra-v2.2.apk",
+      "release_tag": "latest",
+      "changes": [
+        "Vault redesigned as a tile grid: photo thumbnails, gold marks for video and audio, size on every tile, gold filter pills, hold a tile to export or delete.",
+        "Video quality setting: 4K, 1080p or 720p, applied each time recording starts, with automatic fallback on phones that cannot reach it.",
+        "Settings rebuilt in the iOS order: Capture, Recording, Storage, Appearance, About, closing on the brushed-gold wordmark.",
+        "About shows the real app version; Safety & Legal folds open in place."
+      ]
+    },
+    {
       "version": "2.1",
       "date": "2026-09-27",
       "apk": "EyeofAngra-v2.1.apk",
@@ -15,7 +27,7 @@
       "version": "2.0",
       "date": "2026-08-05",
       "apk": "EyeofAngra-v2.0.apk",
-      "release_tag": "latest",
+      "release_tag": null,
       "changes": [
         "Auto-lock: the screen turns off the instant recording starts, and capture continues in the background (opt-in, device-admin).",
         "Choose where captures are saved: a toggle plus a folder picker (Storage Access Framework), with automatic fallback to on-device storage if the folder is unavailable.",
