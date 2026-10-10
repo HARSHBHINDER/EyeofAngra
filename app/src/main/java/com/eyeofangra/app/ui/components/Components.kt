@@ -208,8 +208,8 @@ fun SettingRow(
             .fillMaxWidth()
             .padding(horizontal = Angra.s4, vertical = Angra.s1)
             .clip(RoundedCornerShape(Angra.radiusMd))
-            .background(Angra.Surface)
-            .border(Angra.hairline, Angra.CardBorder, RoundedCornerShape(Angra.radiusMd))
+            .background(Angra.CardGradient)
+            .border(Angra.hairline, Angra.EdgeLight, RoundedCornerShape(Angra.radiusMd))
             .heightIn(min = Angra.touchTarget)
             .clickable { onCheckedChange(!checked) }
             .padding(horizontal = Angra.s4, vertical = Angra.s3),
@@ -239,8 +239,8 @@ fun InfoRow(title: String, value: String, modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .padding(horizontal = Angra.s4, vertical = Angra.s1)
             .clip(RoundedCornerShape(Angra.radiusMd))
-            .background(Angra.Surface)
-            .border(Angra.hairline, Angra.CardBorder, RoundedCornerShape(Angra.radiusMd))
+            .background(Angra.CardGradient)
+            .border(Angra.hairline, Angra.EdgeLight, RoundedCornerShape(Angra.radiusMd))
             .heightIn(min = Angra.touchTarget)
             .padding(horizontal = Angra.s4, vertical = Angra.s3),
         verticalAlignment = Alignment.CenterVertically,

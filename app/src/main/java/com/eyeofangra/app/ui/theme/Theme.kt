@@ -46,5 +46,5 @@ val WordmarkTextStyle = TextStyle(
     fontFamily = FontFamily.Serif,
     fontSize = 34.sp,
     fontWeight = FontWeight.Medium,
-    color = Angra.Gold,
+    brush = Angra.GoldGradient,
 )

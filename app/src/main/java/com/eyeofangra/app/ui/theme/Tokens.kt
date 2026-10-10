@@ -1,5 +1,6 @@
 package com.eyeofangra.app.ui.theme
 
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -26,6 +27,16 @@ object Angra {
     // v2.0 premium tokens: a faint gold wash for glows, a hairline for card edges.
     val GoldSoft = Color(0x1FD4AF37)
     val CardBorder = Color(0x33D4AF37)
+
+    // Brushed gold — the brand's own material. Carried by the few elements that
+    // *are* the brand (wordmark), never a flat fill for ordinary controls.
+    val GoldGradient = Brush.linearGradient(listOf(Color(0xFFF0D178), Gold, Color(0xFFA98928)))
+    // Cards lift very slightly toward the top, so surfaces read as lit from above.
+    val CardGradient = Brush.verticalGradient(listOf(Color(0xFF1C1D22), Color(0xFF131318)))
+    // Edge light along a card's border — the highlight a real material catches.
+    val EdgeLight = Brush.linearGradient(
+        listOf(Gold.copy(alpha = 0.34f), Gold.copy(alpha = 0.06f), Color.Transparent),
+    )
 
     // Semantic — recording red is reserved for active capture and nothing else.
     val Recording = Color(0xFFC62828)
