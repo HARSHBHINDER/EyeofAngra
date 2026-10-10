@@ -3,10 +3,21 @@
   "release_asset": "app-debug.apk",
   "versions": [
     {
+      "version": "2.7",
+      "date": "2026-10-10",
+      "apk": "EyeofAngra-v2.7.apk",
+      "release_tag": "latest",
+      "changes": [
+        "Drag to select: hold a tile and slide across the grid, everything you pass is selected; the grid scrolls on its own at the top or bottom edge.",
+        "Pinch the Vault to resize it, from 1 to 7 tiles per row.",
+        "Photos-style grid: square, edge-to-edge tiles with thin gaps, length bottom-right, capture time on larger tiles, sharper thumbnails when zoomed in."
+      ]
+    },
+    {
       "version": "2.6",
       "date": "2026-10-10",
       "apk": "EyeofAngra-v2.6.apk",
-      "release_tag": "latest",
+      "release_tag": null,
       "changes": [
         "Auto-rotation removed: the app stays in portrait, so locking the phone mid-recording can no longer leave the lock screen in a broken landscape layout.",
         "Recordings and photos are portrait too, however the phone is held: the screen, the record button and the captures never change orientation."

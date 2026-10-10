@@ -6,13 +6,15 @@ import android.media.MediaMetadataRetriever
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +27,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
@@ -37,6 +41,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -44,6 +51,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -54,7 +64,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.round
 import androidx.compose.ui.unit.sp
 import com.eyeofangra.app.Exporter
 import com.eyeofangra.app.MediaEntry
@@ -86,6 +98,8 @@ fun VaultScreen(refreshKey: Any?) {
     var confirmDelete by remember { mutableStateOf(false) }
     var pendingMove by remember { mutableStateOf(false) }
     var version by remember { mutableStateOf(0) }
+    // Tiles per row, set by pinching; 3 matches the Photos default.
+    var columns by rememberSaveable { mutableIntStateOf(3) }
     // App-wide, so leaving the Vault mid-export and coming back shows the bar again.
     val status by Exporter.status.collectAsState()
     val notice by Exporter.notice.collectAsState()
@@ -190,32 +204,49 @@ fun VaultScreen(refreshKey: Any?) {
         } else {
             if (!selecting) {
                 Text(
-                    "Tap to play · hold to select",
+                    "Tap to play · hold and drag to select · pinch to resize",
                     Modifier.padding(start = Angra.s4, bottom = Angra.s2),
                     color = Angra.TextDisabled,
                     fontSize = 11.sp,
                 )
             }
+            val gridState = rememberLazyGridState()
+            var autoScroll by remember { mutableFloatStateOf(0f) }
+            // While a drag-select sits at the top or bottom edge, keep scrolling.
+            LaunchedEffect(autoScroll) {
+                while (autoScroll != 0f) {
+                    gridState.scrollBy(autoScroll)
+                    delay(10)
+                }
+            }
+            val ids = files.map { it.id }
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(108.dp),
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(start = Angra.s4, end = Angra.s4, bottom = Angra.s5),
-                horizontalArrangement = Arrangement.spacedBy(Angra.s3),
-                verticalArrangement = Arrangement.spacedBy(Angra.s3),
+                columns = GridCells.Fixed(columns),
+                state = gridState,
+                modifier = Modifier
+                    .weight(1f)
+                    .pinchColumns(columns) { columns = it }
+                    .dragSelect(
+                        state = gridState,
+                        ids = ids,
+                        current = { selected },
+                        onSelect = { selecting = true; selected = it },
+                        onAutoScroll = { autoScroll = it },
+                    ),
+                contentPadding = PaddingValues(bottom = Angra.s5),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 items(files, key = { it.id }) { entry ->
                     val on = entry.id in selected
                     Tile(
                         entry = entry,
+                        columns = columns,
                         selecting = selecting,
                         selected = on,
                         onClick = {
                             if (selecting) selected = if (on) selected - entry.id else selected + entry.id
                             else MediaLibrary.open(context, entry)
-                        },
-                        onLongClick = {
-                            selecting = true
-                            selected = selected + entry.id
                         },
                     )
                 }
@@ -266,90 +297,148 @@ fun VaultScreen(refreshKey: Any?) {
     }
 }
 
-/// Photos show themselves; video and audio get a gold mark, which avoids decoding a
-/// frame for every tile. A scrim keeps the size legible over any image.
-@OptIn(ExperimentalFoundationApi::class)
+/// Two-finger pinch steps the column count, like Photos: spread for bigger tiles,
+/// pinch for more of them. One finger is left alone, so scrolling still works.
+private fun Modifier.pinchColumns(columns: Int, onChange: (Int) -> Unit) = pointerInput(columns) {
+    awaitEachGesture {
+        var zoom = 1f
+        do {
+            val event = awaitPointerEvent(PointerEventPass.Initial)
+            if (event.changes.count { it.pressed } >= 2) {
+                zoom *= event.calculateZoom()
+                event.changes.forEach { it.consume() }
+                if (zoom > 1.3f && columns > 1) { onChange(columns - 1); return@awaitEachGesture }
+                if (zoom < 0.77f && columns < 7) { onChange(columns + 1); return@awaitEachGesture }
+            }
+        } while (event.changes.any { it.pressed })
+    }
+}
+
+/// Hold a tile, then slide: everything between the first tile and the one under
+/// the finger is selected, as in Photos. Near the top or bottom edge the grid
+/// scrolls on its own so a long run can be swept in one gesture.
+private fun Modifier.dragSelect(
+    state: LazyGridState,
+    ids: List<String>,
+    current: () -> Set<String>,
+    onSelect: (Set<String>) -> Unit,
+    onAutoScroll: (Float) -> Unit,
+) = pointerInput(ids) {
+    var anchor = -1
+    var base = emptySet<String>()
+    val edge = 72.dp.toPx()
+    detectDragGesturesAfterLongPress(
+        onDragStart = { at ->
+            state.indexAt(at)?.let {
+                anchor = it
+                base = current()
+                onSelect(base + ids[it])
+            }
+        },
+        onDrag = { change, _ ->
+            if (anchor >= 0) {
+                change.consume()
+                val y = change.position.y
+                val height = state.layoutInfo.viewportSize.height
+                onAutoScroll(
+                    when {
+                        y > height - edge -> 20f
+                        y < edge -> -20f
+                        else -> 0f
+                    },
+                )
+                state.indexAt(change.position)?.let { i ->
+                    val range = if (i >= anchor) anchor..i else i..anchor
+                    onSelect(base + range.map { ids[it] })
+                }
+            }
+        },
+        onDragEnd = { anchor = -1; onAutoScroll(0f) },
+        onDragCancel = { anchor = -1; onAutoScroll(0f) },
+    )
+}
+
+private fun LazyGridState.indexAt(at: Offset): Int? =
+    layoutInfo.visibleItemsInfo.firstOrNull { IntRect(it.offset, it.size).contains(at.round()) }?.index
+
+/// A Photos-style square: edge to edge, no card chrome. Length sits bottom-right;
+/// the capture time only shows when tiles are big enough to read it.
 @Composable
-private fun Tile(entry: MediaEntry, selecting: Boolean, selected: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun Tile(entry: MediaEntry, columns: Int, selecting: Boolean, selected: Boolean, onClick: () -> Unit) {
     val context = LocalContext.current
     val kind = entry.name.take(3)
-    val info by produceState(TileInfo(null, null), entry.id) {
-        value = withContext(Dispatchers.IO) { loadInfo(context, entry, kind) }
+    val roomy = columns <= 3
+    // Bigger tiles get a sharper decode; small ones stay cheap.
+    val target = if (columns <= 2) 720 else 360
+    val info by produceState(TileInfo(null, null), entry.id, target) {
+        value = withContext(Dispatchers.IO) { loadInfo(context, entry, kind, target) }
     }
-    val shape = RoundedCornerShape(16.dp)
 
     Box(
         Modifier
             .aspectRatio(1f)
-            .clip(shape)
-            .background(Angra.CardGradient)
-            .border(if (selected) 2.dp else Angra.hairline, if (selected) Angra.GoldGradient else Angra.EdgeLight, shape)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+            .background(Angra.Surface)
+            .clickable(onClick = onClick),
     ) {
         val image = info.thumb
         if (image != null) {
             Image(image, contentDescription = null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         } else {
-            Box(Modifier.align(Alignment.Center).size(30.dp)) {
+            Box(Modifier.align(Alignment.Center).size(if (roomy) 30.dp else 20.dp)) {
                 if (kind == "AUD") AudioIcon(true, Angra.Gold) else VideoIcon(true, Angra.Gold)
             }
         }
-        Box(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(48.dp)
-                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f)))),
-        )
-        // Length top-left, so a video or audio clip says what it is at a glance.
-        info.durationMs?.let { ms ->
-            Text(
-                (if (kind == "AUD") "♪ " else "▶ ") + formatDuration(ms),
+        if (info.durationMs != null || roomy) {
+            Box(
                 Modifier
-                    .align(Alignment.TopStart)
-                    .padding(6.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(Color.Black.copy(alpha = 0.55f))
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(if (roomy) 36.dp else 22.dp)
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.5f)))),
+            )
+        }
+        if (roomy) {
+            Text(
+                capturedAt(entry),
+                Modifier.align(Alignment.BottomStart).padding(5.dp),
                 color = Angra.TextPrimary,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Medium,
             )
         }
-        Column(Modifier.align(Alignment.BottomStart).padding(8.dp)) {
-            Text(capturedAt(entry), color = Angra.TextPrimary, fontSize = 10.sp, fontWeight = FontWeight.Medium)
-            Text(RecordingStore.formatBytes(entry.size), color = Angra.TextSecondary, fontSize = 9.sp)
-        }
-        // Marks files written to the folder chosen in Settings, so "not in the app
-        // folder" never reads as "lost".
-        if (entry.inChosenFolder && !selecting) {
+        info.durationMs?.let { ms ->
             Text(
-                "FOLDER",
-                Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(6.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(Color.Black.copy(alpha = 0.55f))
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
-                color = Angra.Gold,
-                fontSize = 8.sp,
-                letterSpacing = 1.sp,
+                formatDuration(ms),
+                Modifier.align(Alignment.BottomEnd).padding(5.dp),
+                color = Color.White,
+                fontSize = if (roomy) 11.sp else 9.sp,
+                fontWeight = FontWeight.SemiBold,
             )
         }
-        // Selection tick: gold filled when chosen, an empty ring otherwise.
+        // A small gold dot marks files living in the folder chosen in Settings.
+        if (entry.inChosenFolder && !selecting) {
+            Box(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .padding(5.dp)
+                    .size(7.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Angra.Gold),
+            )
+        }
         if (selecting) {
-            if (selected) Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.25f)))
+            if (selected) Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.18f)))
             Box(
                 Modifier
                     .align(Alignment.TopEnd)
-                    .padding(6.dp)
-                    .size(22.dp)
+                    .padding(5.dp)
+                    .size(if (roomy) 22.dp else 18.dp)
                     .clip(RoundedCornerShape(50))
-                    .background(if (selected) Angra.GoldGradient else SolidColor(Color.Black.copy(alpha = 0.4f)))
-                    .border(1.5.dp, Angra.TextPrimary, RoundedCornerShape(50)),
+                    .background(if (selected) Angra.GoldGradient else SolidColor(Color.Black.copy(alpha = 0.3f)))
+                    .border(1.5.dp, Color.White, RoundedCornerShape(50)),
                 contentAlignment = Alignment.Center,
             ) {
-                if (selected) Text("✓", color = Angra.Background, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                if (selected) Text("\u2713", color = Angra.Background, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -357,12 +446,12 @@ private fun Tile(entry: MediaEntry, selecting: Boolean, selected: Boolean, onCli
 
 /// Decodes a photo at roughly tile size, so a grid of 12 MP images never loads
 /// full-resolution bitmaps into memory.
-private fun loadThumb(context: Context, entry: MediaEntry): ImageBitmap? = runCatching {
+private fun loadThumb(context: Context, entry: MediaEntry, target: Int): ImageBitmap? = runCatching {
     fun open() = entry.file?.inputStream() ?: context.contentResolver.openInputStream(entry.docUri!!)
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     open()?.use { BitmapFactory.decodeStream(it, null, bounds) }
     var sample = 1
-    while (bounds.outWidth / (sample * 2) >= 320) sample *= 2
+    while (bounds.outWidth / (sample * 2) >= target) sample *= 2
     open()?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample }) }
         ?.asImageBitmap()
 }.getOrNull()
@@ -371,8 +460,8 @@ private class TileInfo(val thumb: ImageBitmap?, val durationMs: Long?)
 
 /// Photos decode a small thumbnail; video takes a frame one second in (past any
 /// black first frame) plus its length; audio gets its length only.
-private fun loadInfo(context: Context, entry: MediaEntry, kind: String): TileInfo {
-    if (kind == "IMG") return TileInfo(loadThumb(context, entry), null)
+private fun loadInfo(context: Context, entry: MediaEntry, kind: String, target: Int): TileInfo {
+    if (kind == "IMG") return TileInfo(loadThumb(context, entry, target), null)
     val r = MediaMetadataRetriever()
     return try {
         val file = entry.file
@@ -380,10 +469,10 @@ private fun loadInfo(context: Context, entry: MediaEntry, kind: String): TileInf
         val ms = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
         val frame = if (kind != "VID") null
         else if (Build.VERSION.SDK_INT >= 27) {
-            r.getScaledFrameAtTime(1_000_000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 360, 360)
+            r.getScaledFrameAtTime(1_000_000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, target, target)
         } else {
             r.getFrameAtTime(1_000_000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)?.let {
-                val scale = 360f / maxOf(it.width, it.height)
+                val scale = target.toFloat() / maxOf(it.width, it.height)
                 android.graphics.Bitmap.createScaledBitmap(it, (it.width * scale).toInt(), (it.height * scale).toInt(), true)
             }
         }
