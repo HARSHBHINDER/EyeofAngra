@@ -3,10 +3,21 @@
   "release_asset": "app-debug.apk",
   "versions": [
     {
+      "version": "2.3",
+      "date": "2026-10-10",
+      "apk": "EyeofAngra-v2.3.apk",
+      "release_tag": "latest",
+      "changes": [
+        "Fixed: exported videos would not play in MX Player or any other player. Export copied on the main thread, so Android killed the app partway through large videos, leaving files without the index MP4 keeps at the end. Export now runs in the background with a progress bar, checks every byte arrived, and deletes a failed partial copy.",
+        "Move only removes the original after a complete, verified copy.",
+        "Video tiles show a real frame from the clip, its length, and when it was recorded; audio tiles show their length."
+      ]
+    },
+    {
       "version": "2.2",
       "date": "2026-10-10",
       "apk": "EyeofAngra-v2.2.apk",
-      "release_tag": "latest",
+      "release_tag": null,
       "changes": [
         "Vault redesigned as a tile grid: photo thumbnails, gold marks for video and audio, size on every tile, gold filter pills, hold a tile to export or delete.",
         "Video quality setting: 4K, 1080p or 720p, applied each time recording starts, with automatic fallback on phones that cannot reach it.",

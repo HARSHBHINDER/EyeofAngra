@@ -2,6 +2,10 @@ package com.eyeofangra.app.feature
 
 import android.content.Context
 import android.graphics.BitmapFactory
+import android.media.MediaMetadataRetriever
+import android.os.Build
+import android.provider.DocumentsContract
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -30,9 +34,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -53,6 +59,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.lifecycleScope
 import com.eyeofangra.app.MediaEntry
 import com.eyeofangra.app.MediaLibrary
 import com.eyeofangra.app.RecordingStore
@@ -60,6 +67,10 @@ import com.eyeofangra.app.ui.components.AudioIcon
 import com.eyeofangra.app.ui.components.VideoIcon
 import com.eyeofangra.app.ui.theme.Angra
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Locale
 import kotlinx.coroutines.withContext
 
 private enum class Filter(val label: String, val prefixes: List<String>) {
@@ -79,6 +90,8 @@ fun VaultScreen(refreshKey: Any?) {
     var exportMove by remember { mutableStateOf(false) }
     // Recomputed whenever a recording finishes or an item is deleted.
     var version by remember { mutableStateOf(0) }
+    var exportPercent by remember { mutableStateOf<Int?>(null) }
+    var notice by remember { mutableStateOf<String?>(null) }
     // A real mime type (not "*/*") so SAF keeps the right extension — an export
     // saved with the wrong extension plays back as corrupt even though the bytes
     // (already MP4/AAC from the recorder) are untouched.
@@ -87,10 +100,27 @@ fun VaultScreen(refreshKey: Any?) {
         val move = exportMove
         exportTarget = null
         if (dest != null && target != null) {
-            val ok = MediaLibrary.export(context, target, dest)
-            if (ok && move) {
-                MediaLibrary.delete(context, target)
-                version++
+            exportPercent = 0
+            // Activity scope, not the screen's: switching tabs must not cancel a
+            // multi-GB copy halfway and leave a truncated file behind.
+            // ponytail: dies with the app process; a foreground service if exports
+            // must survive the app being swiped away.
+            (context as ComponentActivity).lifecycleScope.launch {
+                val ok = withContext(Dispatchers.IO) {
+                    MediaLibrary.export(context, target, dest) { exportPercent = it }
+                }
+                exportPercent = null
+                if (ok) {
+                    if (move) {
+                        MediaLibrary.delete(context, target)
+                        version++
+                    }
+                    notice = if (move) "Moved" else "Exported"
+                } else {
+                    // Never leave a half-copied, unplayable file in the user's folder.
+                    runCatching { DocumentsContract.deleteDocument(context.contentResolver, dest) }
+                    notice = "Export failed — the original is untouched"
+                }
             }
         }
     }
@@ -134,6 +164,22 @@ fun VaultScreen(refreshKey: Any?) {
             color = Angra.TextSecondary,
             fontSize = Angra.labelSize,
         )
+
+        exportPercent?.let { pct ->
+            Column(Modifier.fillMaxWidth().padding(horizontal = Angra.s4, vertical = Angra.s1)) {
+                Text("Exporting… $pct%", color = Angra.Gold, fontSize = Angra.labelSize)
+                LinearProgressIndicator(
+                    progress = { pct / 100f },
+                    modifier = Modifier.fillMaxWidth().padding(top = Angra.s1),
+                    color = Angra.Gold,
+                    trackColor = Angra.SurfaceAlt,
+                )
+            }
+        }
+        notice?.let { msg ->
+            LaunchedEffect(msg) { delay(3_000); notice = null }
+            Text(msg, Modifier.padding(horizontal = Angra.s4, vertical = Angra.s1), color = Angra.Gold, fontSize = Angra.labelSize)
+        }
 
         // Gold pill marks the active filter; the rest sit back on the surface tone.
         Row(
@@ -247,8 +293,8 @@ private fun Tile(entry: MediaEntry, onOpen: () -> Unit, onExport: () -> Unit, on
     val context = LocalContext.current
     val kind = entry.name.take(3)
     var menu by remember { mutableStateOf(false) }
-    val thumb by produceState<ImageBitmap?>(null, entry.id) {
-        if (kind == "IMG") value = withContext(Dispatchers.IO) { loadThumb(context, entry) }
+    val info by produceState(TileInfo(null, null), entry.id) {
+        value = withContext(Dispatchers.IO) { loadInfo(context, entry, kind) }
     }
     val shape = RoundedCornerShape(16.dp)
 
@@ -260,7 +306,7 @@ private fun Tile(entry: MediaEntry, onOpen: () -> Unit, onExport: () -> Unit, on
             .border(Angra.hairline, Angra.EdgeLight, shape)
             .combinedClickable(onClick = onOpen, onLongClick = { menu = true }),
     ) {
-        val image = thumb
+        val image = info.thumb
         if (image != null) {
             Image(image, contentDescription = null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         } else {
@@ -272,16 +318,28 @@ private fun Tile(entry: MediaEntry, onOpen: () -> Unit, onExport: () -> Unit, on
             Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .height(40.dp)
+                .height(48.dp)
                 .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f)))),
         )
-        Text(
-            RecordingStore.formatBytes(entry.size),
-            Modifier.align(Alignment.BottomStart).padding(8.dp),
-            color = Angra.TextPrimary,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Medium,
-        )
+        // Length top-left, so a video or audio clip says what it is at a glance.
+        info.durationMs?.let { ms ->
+            Text(
+                (if (kind == "AUD") "♪ " else "▶ ") + formatDuration(ms),
+                Modifier
+                    .align(Alignment.TopStart)
+                    .padding(6.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                color = Angra.TextPrimary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+            )
+        }
+        Column(Modifier.align(Alignment.BottomStart).padding(8.dp)) {
+            Text(capturedAt(entry), color = Angra.TextPrimary, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+            Text(RecordingStore.formatBytes(entry.size), color = Angra.TextSecondary, fontSize = 9.sp)
+        }
         // Marks files written to the folder chosen in Settings, so "not in the app
         // folder" never reads as "lost".
         if (entry.inChosenFolder) {
@@ -317,3 +375,47 @@ private fun loadThumb(context: Context, entry: MediaEntry): ImageBitmap? = runCa
     open()?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample }) }
         ?.asImageBitmap()
 }.getOrNull()
+
+private class TileInfo(val thumb: ImageBitmap?, val durationMs: Long?)
+
+/// Photos decode a small thumbnail; video takes a frame one second in (past any
+/// black first frame) plus its length; audio gets its length only.
+private fun loadInfo(context: Context, entry: MediaEntry, kind: String): TileInfo {
+    if (kind == "IMG") return TileInfo(loadThumb(context, entry), null)
+    val r = MediaMetadataRetriever()
+    return try {
+        val file = entry.file
+        if (file != null) r.setDataSource(file.absolutePath) else r.setDataSource(context, entry.docUri)
+        val ms = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+        val frame = if (kind != "VID") null
+        else if (Build.VERSION.SDK_INT >= 27) {
+            r.getScaledFrameAtTime(1_000_000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 360, 360)
+        } else {
+            r.getFrameAtTime(1_000_000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)?.let {
+                val scale = 360f / maxOf(it.width, it.height)
+                android.graphics.Bitmap.createScaledBitmap(it, (it.width * scale).toInt(), (it.height * scale).toInt(), true)
+            }
+        }
+        TileInfo(frame?.asImageBitmap(), ms)
+    } catch (e: Exception) {
+        TileInfo(null, null)
+    } finally {
+        runCatching { r.release() }
+    }
+}
+
+private fun formatDuration(ms: Long): String {
+    val total = ms / 1000
+    val h = total / 3600
+    val m = (total % 3600) / 60
+    val sec = total % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
+}
+
+/// "25 Aug · 14:09" from the VID_yyyyMMdd_HHmmss name, falling back to the file time.
+private fun capturedAt(entry: MediaEntry): String {
+    val out = SimpleDateFormat("d MMM · HH:mm", Locale.getDefault())
+    val raw = entry.name.substringAfter('_').substringBeforeLast('.').take(15)
+    return runCatching { SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).parse(raw) }.getOrNull()
+        ?.let { out.format(it) } ?: out.format(java.util.Date(entry.modified))
+}

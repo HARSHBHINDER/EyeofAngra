@@ -81,13 +81,30 @@ object MediaLibrary {
     }
 
     /// Copies a capture to a destination the user picked (SAF), so it can leave
-    /// the vault for any folder without deleting the original.
-    fun export(context: Context, entry: MediaEntry, dest: Uri): Boolean = runCatching {
+    /// the vault for any folder without deleting the original. Runs on a background
+    /// thread — a multi-GB copy on the main thread gets the app killed mid-copy.
+    /// MP4 keeps its index at the end of the file, so a short copy is unplayable:
+    /// success means every byte arrived, never "the copy started".
+    fun export(context: Context, entry: MediaEntry, dest: Uri, onProgress: (Int) -> Unit = {}): Boolean = runCatching {
         val input = entry.file?.inputStream()
             ?: context.contentResolver.openInputStream(entry.docUri!!)
             ?: return false
-        val output = context.contentResolver.openOutputStream(dest) ?: return false
-        input.use { i -> output.use { o -> i.copyTo(o) } }
-        true
+        val output = context.contentResolver.openOutputStream(dest, "wt") ?: return false
+        var copied = 0L
+        var lastPercent = -1
+        input.use { i ->
+            output.use { o ->
+                val buffer = ByteArray(1 shl 20)
+                while (true) {
+                    val n = i.read(buffer)
+                    if (n < 0) break
+                    o.write(buffer, 0, n)
+                    copied += n
+                    val percent = if (entry.size > 0) (copied * 100 / entry.size).toInt() else 0
+                    if (percent != lastPercent) { lastPercent = percent; onProgress(percent) }
+                }
+            }
+        }
+        copied == entry.size
     }.getOrDefault(false)
 }
