@@ -4,8 +4,6 @@ import android.content.Context
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.os.Build
-import android.provider.DocumentsContract
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -38,6 +36,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,7 +58,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.lifecycleScope
+import com.eyeofangra.app.Exporter
 import com.eyeofangra.app.MediaEntry
 import com.eyeofangra.app.MediaLibrary
 import com.eyeofangra.app.RecordingStore
@@ -68,7 +67,6 @@ import com.eyeofangra.app.ui.components.VideoIcon
 import com.eyeofangra.app.ui.theme.Angra
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
 import kotlinx.coroutines.withContext
@@ -90,8 +88,10 @@ fun VaultScreen(refreshKey: Any?) {
     var exportMove by remember { mutableStateOf(false) }
     // Recomputed whenever a recording finishes or an item is deleted.
     var version by remember { mutableStateOf(0) }
-    var exportPercent by remember { mutableStateOf<Int?>(null) }
-    var notice by remember { mutableStateOf<String?>(null) }
+    // App-wide, so leaving the Vault mid-export and coming back shows the bar again.
+    val exportPercent by Exporter.progress.collectAsState()
+    val notice by Exporter.notice.collectAsState()
+    val exportChanges by Exporter.changes.collectAsState()
     // A real mime type (not "*/*") so SAF keeps the right extension — an export
     // saved with the wrong extension plays back as corrupt even though the bytes
     // (already MP4/AAC from the recorder) are untouched.
@@ -99,30 +99,7 @@ fun VaultScreen(refreshKey: Any?) {
         val target = exportTarget
         val move = exportMove
         exportTarget = null
-        if (dest != null && target != null) {
-            exportPercent = 0
-            // Activity scope, not the screen's: switching tabs must not cancel a
-            // multi-GB copy halfway and leave a truncated file behind.
-            // ponytail: dies with the app process; a foreground service if exports
-            // must survive the app being swiped away.
-            (context as ComponentActivity).lifecycleScope.launch {
-                val ok = withContext(Dispatchers.IO) {
-                    MediaLibrary.export(context, target, dest) { exportPercent = it }
-                }
-                exportPercent = null
-                if (ok) {
-                    if (move) {
-                        MediaLibrary.delete(context, target)
-                        version++
-                    }
-                    notice = if (move) "Moved" else "Exported"
-                } else {
-                    // Never leave a half-copied, unplayable file in the user's folder.
-                    runCatching { DocumentsContract.deleteDocument(context.contentResolver, dest) }
-                    notice = "Export failed — the original is untouched"
-                }
-            }
-        }
+        if (dest != null && target != null) Exporter.start(context, target, dest, move)
     }
     val exportVideoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4"), onExportResult)
     val exportAudioLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("audio/mp4"), onExportResult)
@@ -137,10 +114,10 @@ fun VaultScreen(refreshKey: Any?) {
     }
 
     // Both locations: this app's storage and the folder chosen in Settings.
-    val files = remember(filter, version, refreshKey) {
+    val files = remember(filter, version, refreshKey, exportChanges) {
         MediaLibrary.list(context, filter.prefixes)
     }
-    val used = remember(version, refreshKey) { MediaLibrary.usedBytes(context) }
+    val used = remember(version, refreshKey, exportChanges) { MediaLibrary.usedBytes(context) }
     val free = remember(version, refreshKey) { RecordingStore.freeBytes(context) }
 
     Column(Modifier.fillMaxSize().background(Angra.Background)) {
@@ -177,7 +154,7 @@ fun VaultScreen(refreshKey: Any?) {
             }
         }
         notice?.let { msg ->
-            LaunchedEffect(msg) { delay(3_000); notice = null }
+            LaunchedEffect(msg) { delay(3_000); Exporter.notice.value = null }
             Text(msg, Modifier.padding(horizontal = Angra.s4, vertical = Angra.s1), color = Angra.Gold, fontSize = Angra.labelSize)
         }
 

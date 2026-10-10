@@ -5,7 +5,17 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.documentfile.provider.DocumentFile
+import android.os.ParcelFileDescriptor
+import android.os.Process
+import android.system.Os
 import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 
 /// One capture, wherever it lives — this app's private storage or the folder the
 /// user chose. The Vault shows both, so turning the storage toggle on never makes
@@ -80,31 +90,87 @@ object MediaLibrary {
             .getOrDefault(false)
     }
 
-    /// Copies a capture to a destination the user picked (SAF), so it can leave
-    /// the vault for any folder without deleting the original. Runs on a background
-    /// thread — a multi-GB copy on the main thread gets the app killed mid-copy.
-    /// MP4 keeps its index at the end of the file, so a short copy is unplayable:
-    /// success means every byte arrived, never "the copy started".
+    /// Copies a capture to a folder the user picked (SAF). MP4 keeps its index at
+    /// the end, so success means every byte arrived — never "the copy started".
+    ///
+    /// Smoothness, not just speed: written data is synced to flash every 16 MB.
+    /// Without that the kernel buffers gigabytes, then stalls everything to flush
+    /// them in bursts — the fast-slow-fast progress and the janky screen.
     fun export(context: Context, entry: MediaEntry, dest: Uri, onProgress: (Int) -> Unit = {}): Boolean = runCatching {
-        val input = entry.file?.inputStream()
-            ?: context.contentResolver.openInputStream(entry.docUri!!)
+        val inPfd = entry.file?.let { ParcelFileDescriptor.open(it, ParcelFileDescriptor.MODE_READ_ONLY) }
+            ?: context.contentResolver.openFileDescriptor(entry.docUri!!, "r")
             ?: return false
-        val output = context.contentResolver.openOutputStream(dest, "wt") ?: return false
+        val outPfd = context.contentResolver.openFileDescriptor(dest, "wt") ?: return false
         var copied = 0L
+        var sinceSync = 0L
         var lastPercent = -1
-        input.use { i ->
-            output.use { o ->
+        inPfd.use { inP ->
+            outPfd.use { outP ->
+                val input = FileInputStream(inP.fileDescriptor)
+                val output = FileOutputStream(outP.fileDescriptor)
                 val buffer = ByteArray(1 shl 20)
                 while (true) {
-                    val n = i.read(buffer)
+                    val n = input.read(buffer)
                     if (n < 0) break
-                    o.write(buffer, 0, n)
+                    output.write(buffer, 0, n)
                     copied += n
+                    sinceSync += n
+                    if (sinceSync >= SYNC_EVERY) {
+                        sinceSync = 0
+                        // Some providers (FUSE) reject these; the copy is still correct.
+                        runCatching { Os.fdatasync(outP.fileDescriptor) }
+                    }
                     val percent = if (entry.size > 0) (copied * 100 / entry.size).toInt() else 0
                     if (percent != lastPercent) { lastPercent = percent; onProgress(percent) }
                 }
+                runCatching { Os.fsync(outP.fileDescriptor) }
             }
         }
         copied == entry.size
     }.getOrDefault(false)
+
+    private const val SYNC_EVERY = 16L shl 20
+}
+
+/// One export at a time, owned by the app rather than a screen, so its progress
+/// survives switching tabs and the Vault picks it straight back up.
+object Exporter {
+    /// 0..100 while running, null when idle.
+    val progress = MutableStateFlow<Int?>(null)
+    val notice = MutableStateFlow<String?>(null)
+    /// Bumped when an export changes the vault contents (a Move), so lists refresh.
+    val changes = MutableStateFlow(0)
+
+    // ponytail: dies with the app process; move to a foreground service if exports
+    // must survive the app being swiped away.
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    fun start(context: Context, entry: MediaEntry, dest: Uri, move: Boolean) {
+        if (progress.value != null) return
+        val app = context.applicationContext
+        progress.value = 0
+        scope.launch {
+            // Background priority: the copy yields the CPU to the UI instead of
+            // competing with it, which is what made the screen stutter.
+            val previous = Process.getThreadPriority(Process.myTid())
+            Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND)
+            val ok = try {
+                MediaLibrary.export(app, entry, dest) { progress.value = it }
+            } finally {
+                Process.setThreadPriority(previous)
+            }
+            if (ok) {
+                if (move) {
+                    MediaLibrary.delete(app, entry)
+                    changes.value++
+                }
+                notice.value = if (move) "Moved" else "Exported"
+            } else {
+                // Never leave a half-copied, unplayable file in the user's folder.
+                runCatching { DocumentsContract.deleteDocument(app.contentResolver, dest) }
+                notice.value = "Export failed — the original is untouched"
+            }
+            progress.value = null
+        }
+    }
 }
