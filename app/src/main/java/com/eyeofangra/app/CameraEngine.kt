@@ -1,6 +1,8 @@
 package com.eyeofangra.app
 
 import android.content.Context
+import android.view.OrientationEventListener
+import android.view.Surface
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.Preview
@@ -26,6 +28,28 @@ object CameraEngine {
     val preview: Preview by lazy { Preview.Builder().build() }
     val imageCapture: ImageCapture by lazy { ImageCapture.Builder().build() }
 
+    // The screen is locked to portrait, so the display can no longer tell CameraX
+    // how the phone is held. The sensor can: captures are tagged with the physical
+    // rotation, so a sideways recording still plays back sideways-correct.
+    private var rotation = Surface.ROTATION_0
+    private var orientation: OrientationEventListener? = null
+
+    private fun trackOrientation(context: Context) {
+        if (orientation != null) return
+        orientation = object : OrientationEventListener(context.applicationContext) {
+            override fun onOrientationChanged(degrees: Int) {
+                if (degrees == ORIENTATION_UNKNOWN) return
+                rotation = when (degrees) {
+                    in 45 until 135 -> Surface.ROTATION_270
+                    in 135 until 225 -> Surface.ROTATION_180
+                    in 225 until 315 -> Surface.ROTATION_90
+                    else -> Surface.ROTATION_0
+                }
+                imageCapture.targetRotation = rotation
+            }
+        }.also { it.enable() }
+    }
+
     private var provider: ProcessCameraProvider? = null
 
     private fun withProvider(context: Context, block: (ProcessCameraProvider) -> Unit) {
@@ -40,6 +64,7 @@ object CameraEngine {
 
     /// Viewfinder only — used while idle, by both the Video and Photo screens.
     fun bindPreview(context: Context, owner: LifecycleOwner, withPhoto: Boolean) {
+        trackOrientation(context)
         withProvider(context) { p ->
             runCatching {
                 p.unbindAll()
@@ -76,7 +101,9 @@ object CameraEngine {
                     QualitySelector.from(quality, FallbackStrategy.lowerQualityOrHigherThan(quality)),
                 )
                 .build()
-            val capture = VideoCapture.withOutput(recorder)
+            trackOrientation(context)
+            // Orientation is fixed at record start; an MP4 has one rotation for the whole clip.
+            val capture = VideoCapture.Builder(recorder).setTargetRotation(rotation).build()
             val bound = runCatching {
                 // Drops the activity's Preview binding, so nothing renders while
                 // recording and the session is never reconfigured mid-capture.

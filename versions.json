@@ -3,10 +3,20 @@
   "release_asset": "app-debug.apk",
   "versions": [
     {
+      "version": "2.6",
+      "date": "2026-10-10",
+      "apk": "EyeofAngra-v2.6.apk",
+      "release_tag": "latest",
+      "changes": [
+        "Auto-rotation removed: the app stays in portrait, so locking the phone mid-recording can no longer leave the lock screen in a broken landscape layout.",
+        "Recordings and photos still come out the right way round: the orientation sensor tags each capture with how the phone was held."
+      ]
+    },
+    {
       "version": "2.5",
       "date": "2026-10-10",
       "apk": "EyeofAngra-v2.5.apk",
-      "release_tag": "latest",
+      "release_tag": null,
       "changes": [
         "Select mode in the Vault: tap Select or hold any tile, tick as many videos, photos and audio clips as you like, or use All.",
         "Batch actions for every file type: Copy to folder, Move to folder (pick the folder once for the whole batch), and Delete with one confirmation.",
